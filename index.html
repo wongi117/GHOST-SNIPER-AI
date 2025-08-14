@@ -1,81 +1,193 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ghost Sniper — Day‑0 MVP</title>
-  <link rel="stylesheet" href="/ghost.css" />
-  <!-- Jupiter Terminal script -->
-  <script src="https://terminal.jup.ag/main-v4.js"></script>
+  <title>👻 Ghost Sniper — Day-0</title>
+  <style>
+    body{margin:0;background:#0b1220;color:#e8eefc;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    header{padding:16px 20px;border-bottom:1px solid #1d2840;background:#0e172a;position:sticky;top:0}
+    h1{margin:0;font-size:18px}
+    .sub{opacity:.8;font-size:12px;margin-top:6px}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:18px}
+    @media(min-width:960px){.wrap{grid-template-columns:1.1fr .9fr}}
+    .card{background:#0f1a33;border:1px solid #1c2844;border-radius:12px;padding:14px}
+    .card h2{margin:4px 0 12px 0;font-size:16px}
+    .muted{color:#9fb5d9}
+    .btn{display:inline-block;background:#6c5ce7;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:600;text-decoration:none;cursor:pointer}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    input,select{background:#0b1329;color:#e8eefc;border:1px solid #263455;border-radius:10px;padding:10px 12px}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .ok{color:#41d392}.bad{color:#ff6a6a}
+    .pill{display:inline-block;border:1px solid #263455;border-radius:999px;padding:4px 8px;font-size:12px}
+    .foot{margin-top:10px;font-size:12px;color:#9fb5d9}
+    #log{white-space:pre-wrap;background:#0b1323;border:1px solid #202c49;border-radius:8px;padding:10px;margin-top:10px;font-size:12px;color:#cfe1ff;max-height:180px;overflow:auto}
+    iframe{width:100%;height:560px;border:0;border-radius:10px;background:#000}
+  </style>
 </head>
 <body>
-  <div class="layout">
-    <header class="topbar">
-      <div class="brand">👻 Ghost Sniper</div>
-      <div class="desc">Chat on the right. Trade on the left. You sign — no keys on server.</div>
-    </header>
+  <header>
+    <h1>👻 Ghost Sniper</h1>
+    <div class="sub">Chat on the right. Trade on the left. <b>You sign — no keys on server.</b></div>
+  </header>
 
-    <main class="main">
-      <section class="swap">
-        <h2>Swap (Jupiter Terminal)</h2>
-        <div id="integrated-terminal" style="width: 420px; height: 640px;"></div>
-      </section>
+  <div class="wrap">
+    <!-- SOLANA / JUPITER -------------------------------------------------- -->
+    <section class="card">
+      <h2>Swap (Solana — Jupiter Terminal)</h2>
+      <div id="wallet-help"></div>
+      <!-- Your existing Jupiter embed works; keep it simple via iframe -->
+      <iframe id="jup" title="Jupiter Terminal"
+        src="https://terminal.jup.ag/#/?colorMode=dark&integratorId=ghost-sniper&title=Ghost%20Sniper"></iframe>
+      <div class="foot">
+        <span class="pill">Solana</span>
+        <span class="muted">If you’re on iPhone Safari, use “Open in Phantom” below so the wallet can connect.</span>
+      </div>
+    </section>
 
-      <section class="chat">
-        <h2>Ghost Chat</h2>
-        <div id="chatlog" class="chatlog"></div>
-        <form id="chatform" class="chatform">
-          <input id="msg" class="msg" placeholder="Ask me for a quote: buy 0.1 SOL of WIF" />
-          <button>Send</button>
-        </form>
-        <div class="hint">Tip: Ask “Quote 0.1 SOL → USDC” and I’ll fetch a route.</div>
-      </section>
-    </main>
+    <!-- ETHEREUM / METAMASK ----------------------------------------------- -->
+    <section class="card" id="ethCard">
+      <h2>Swap (Ethereum — MetaMask via 0x)</h2>
+      <div class="row" id="mmRow">
+        <button class="btn" id="mmConnect">Connect MetaMask</button>
+        <span id="mmStatus" class="muted">Not connected</span>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="muted" style="margin-bottom:8px">Sell ETH → Buy USDC (0x API, Mainnet)</div>
+        <div class="row">
+          <label>Amount (ETH)</label>
+          <input type="number" id="sellAmt" placeholder="0.01" min="0" step="0.0001" style="width:140px" />
+          <button class="btn" id="getQuote">Get Quote</button>
+          <button class="btn" id="doSwap" disabled>Swap</button>
+        </div>
+        <div id="quoteBox" class="muted" style="margin-top:8px"></div>
+        <div id="log"></div>
+        <div class="foot">
+          <span class="pill">Ethereum</span>
+          <span class="muted">You’ll confirm in MetaMask. Start small. Uses 0x swap router.</span>
+        </div>
+      </div>
+    </section>
   </div>
 
+  <!-- Ethers (for formatting utils) -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
   <script>
-    // --- Initialize Jupiter Terminal (Integrated mode)
-    window.Jupiter.init({
-      displayMode: "integrated",
-      integratedTargetId: "integrated-terminal",
-    });
+    /* ------------------- iPhone helper: Open in Phantom ------------------- */
+    (function () {
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      const isInPhantom = !!(window?.phantom?.solana);
+      if (!isIOS || isInPhantom) return;
 
-    // --- Minimal chat UI
-    const chatlog = document.getElementById("chatlog");
-    const form = document.getElementById("chatform");
-    const msg = document.getElementById("msg");
+      const btn = document.createElement('a');
+      btn.href = 'phantom://browse/' + encodeURIComponent(window.location.href);
+      btn.className = 'btn';
+      btn.textContent = 'Open in Phantom (iPhone)';
+      const note = document.createElement('div');
+      note.className = 'muted';
+      note.style.margin = '8px 0';
+      note.textContent = 'On iPhone, Solana wallets connect inside the Phantom app.';
+      const mount = document.querySelector('#wallet-help');
+      mount.appendChild(btn);
+      mount.appendChild(note);
+    })();
 
-    const messages = [
-      { role: "system", content: "You are Ghost Sniper, a trading assistant. If user asks for a quote, call get_quote with correct mints and amount in smallest units (lamports). If unsure of a mint, ask a clarifying question. Keep answers short." }
-    ];
+    /* ------------------------ MetaMask + 0x Swap -------------------------- */
+    const mm = window.ethereum;
+    const mmStatus = document.getElementById('mmStatus');
+    const mmBtn = document.getElementById('mmConnect');
+    const sellAmt = document.getElementById('sellAmt');
+    const getQuoteBtn = document.getElementById('getQuote');
+    const swapBtn = document.getElementById('doSwap');
+    const quoteBox = document.getElementById('quoteBox');
+    const log = document.getElementById('log');
+    let account = null;
+    let lastQuote = null;
 
-    function add(role, text) {
-      const div = document.createElement("div");
-      div.className = role === "user" ? "bubble user" : "bubble ai";
-      div.textContent = text;
-      chatlog.appendChild(div);
-      chatlog.scrollTop = chatlog.scrollHeight;
+    function logLine(x){ log.textContent = (log.textContent ? log.textContent + '\n' : '') + x; }
+
+    async function ensureMainnet() {
+      const chainId = await mm.request({ method: 'eth_chainId' });
+      if (chainId !== '0x1') {
+        try {
+          await mm.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x1' }]
+          });
+        } catch (e) {
+          throw new Error('Please switch MetaMask to Ethereum Mainnet.');
+        }
+      }
     }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const text = msg.value.trim();
-      if (!text) return;
-      add("user", text);
-      msg.value = "";
+    async function connectMM(){
+      if (!mm || !mm.isMetaMask){ mmStatus.innerHTML = '<span class="bad">MetaMask not found</span>'; return; }
+      const [addr] = await mm.request({ method: 'eth_requestAccounts' });
+      account = addr;
+      mmStatus.innerHTML = 'Connected: <span class="mono">' + addr.slice(0,6) + '…' + addr.slice(-4) + '</span>';
+      await ensureMainnet();
+    }
 
-      messages.push({ role: "user", content: text });
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages })
+    async function getQuote(){
+      if (!account){ await connectMM(); if (!account) return; }
+      await ensureMainnet();
+
+      const eth = Number(sellAmt.value || '0');
+      if (!(eth > 0)) { alert('Enter amount in ETH'); return; }
+
+      // Convert ETH to wei (string)
+      const wei = ethers.utils.parseEther(String(eth)).toString();
+
+      // 0x swap API — ETH -> USDC
+      const params = new URLSearchParams({
+        sellToken: 'ETH',
+        buyToken: 'USDC',
+        sellAmount: wei,
+        takerAddress: account
       });
-      const data = await r.json();
-      const reply = data?.content || JSON.stringify(data);
-      messages.push({ role: "assistant", content: reply });
-      add("ai", reply);
-    });
+      const url = 'https://api.0x.org/swap/v1/quote?' + params.toString();
+      quoteBox.textContent = 'Fetching quote…';
+      const r = await fetch(url);
+      if (!r.ok){ const t = await r.text(); quoteBox.textContent = 'Quote error: ' + t; return; }
+      const q = await r.json();
+      lastQuote = q;
+
+      const usdc = Number(q.buyAmount) / 1e6; // USDC has 6 decimals
+      const price = usdc / eth;
+      quoteBox.innerHTML = `Receive ~ <b>${usdc.toFixed(2)} USDC</b> (≈ ${price.toFixed(2)} USDC/ETH)`;
+      swapBtn.disabled = false;
+      logLine('Got quote. Gas estimate: ' + q.gas);
+    }
+
+    async function doSwap(){
+      if (!lastQuote) return;
+      swapBtn.disabled = true; swapBtn.textContent = 'Swapping…';
+      try {
+        const txParams = {
+          from: account,
+          to: lastQuote.to,
+          data: lastQuote.data,
+          value: lastQuote.value,     // in hex
+          gas: lastQuote.gas,         // may be undefined; MetaMask can estimate
+          gasPrice: lastQuote.gasPrice
+        };
+        const txHash = await mm.request({ method: 'eth_sendTransaction', params: [txParams] });
+        logLine('Submitted: ' + txHash);
+        quoteBox.innerHTML += '<br><span class="ok">Swap submitted. Check MetaMask.</span>';
+      } catch (e) {
+        logLine('Swap error: ' + (e?.message || e));
+        quoteBox.innerHTML += '<br><span class="bad">Swap failed.</span>';
+      } finally {
+        swapBtn.disabled = false; swapBtn.textContent = 'Swap';
+      }
+    }
+
+    mmBtn?.addEventListener('click', connectMM);
+    getQuoteBtn?.addEventListener('click', getQuote);
+    swapBtn?.addEventListener('click', doSwap);
   </script>
 </body>
 </html>
