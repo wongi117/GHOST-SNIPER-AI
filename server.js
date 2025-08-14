@@ -1,16 +1,25 @@
-const express = require('express');
-const path = require('path');
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from /public
+const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : __dirname;
 
-// Default route → load wallet-test.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'wallet-test.html'));
+app.use(express.static(PUBLIC_DIR));
+
+// Default route
+app.get("/", (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Ghost Sniper running on port ${PORT}`);
+app.listen(3000, () => {
+  console.log("🚀 Ghost Sniper running on port 3000");
 });
