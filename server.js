@@ -1,163 +1,267 @@
-// server.js — Ghost Sniper AI backend (Node 22)
+// server.js — Ghost Sniper AI (Node 22 / ESM)
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+// On Node 18+ fetch is global; we don't need node-fetch.
 
 dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-// ---------- Static front-end ----------
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
+
+// ---------- Static hosting ----------
 const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
   ? path.join(__dirname, "public")
-  : __dirname;
-app.use(express.static(PUBLIC_DIR));
+  : null;
 
-const PORT = process.env.PORT || 3000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+if (PUBLIC_DIR) {
+  app.use(express.static(PUBLIC_DIR));
+}
 
 // ---------- Health ----------
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// ---------- DexScreener (new pairs / SOL only) ----------
-app.get("/api/dexscreener/new", async (_req, res) => {
-  try {
-    // Common endpoint that returns latest pairs for a chain
-    const r = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana");
-    const data = await r.json();
-    // Keep the most recent 50 and surface just what we need
-    const items = (data?.pairs || []).slice(0, 50).map(p => ({
-      pairAddress: p.pairAddress,
-      baseSymbol: p.baseToken?.symbol,
-      baseAddress: p.baseToken?.address,
-      quoteSymbol: p.quoteToken?.symbol,
-      quoteAddress: p.quoteToken?.address,
-      dexId: p.dexId,
-      priceUsd: p.priceUsd,
-      liquidityUsd: p.liquidity?.usd,
-      fdv: p.fdv,
-      url: p.url,
-      flags: p.labels || []
-    }));
-    res.json({ items });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "dexscreener_error", detail: String(e) });
-  }
-});
-
-// ---------- CoinGecko (SOL spot) ----------
-app.get("/api/price/sol", async (_req, res) => {
-  try {
-    const r = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
-    );
-    const j = await r.json();
-    res.json({ usd: j?.solana?.usd ?? null });
-  } catch (e) {
-    res.status(500).json({ error: "coingecko_error", detail: String(e) });
-  }
-});
-
-// ---------- Jupiter v6 quote proxy ----------
+// ---------- Jupiter v6: Quote ----------
 app.get("/api/jup/quote", async (req, res) => {
   try {
-    const { inputMint, outputMint, amount, slippageBps = 100 } = req.query;
-    if (!inputMint || !outputMint || !amount) {
-      return res.status(400).json({ error: "missing_params" });
-    }
-    const q = new URL("https://quote-api.jup.ag/v6/quote");
-    q.searchParams.set("inputMint", inputMint);
-    q.searchParams.set("outputMint", outputMint);
-    q.searchParams.set("amount", String(amount)); // integer in smallest units
-    q.searchParams.set("slippageBps", String(slippageBps));
-    q.searchParams.set("onlyDirectRoutes", "false");
+    const url = new URL("https://quote-api.jup.ag/v6/quote");
+    // pass through typical params
+    const pass = [
+      "inputMint",
+      "outputMint",
+      "amount",
+      "slippageBps",
+      "feeBps",
+      "onlyDirectRoutes",
+      "preferDex",
+      "asLegacyTransaction",
+    ];
+    pass.forEach((k) => {
+      if (req.query[k] != null) url.searchParams.set(k, String(req.query[k]));
+    });
 
-    const r = await fetch(q.toString());
-    const data = await r.json();
-    res.json(data);
+    const r = await fetch(url.toString());
+    const j = await r.json();
+    return res.json(j);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "quote_error", detail: String(e) });
+    return res.status(500).json({ error: "quote_error", detail: String(e) });
   }
 });
 
-// ---------- Jupiter v6 swap proxy (build TX) ----------
+// ---------- Jupiter v6: Swap (build serialized tx) ----------
 app.post("/api/jup/swap", async (req, res) => {
   try {
-    const { quoteResponse, userPublicKey, wrapAndUnwrapSol = true } = req.body;
-    if (!quoteResponse || !userPublicKey) {
-      return res.status(400).json({ error: "missing_body" });
+    const body = req.body || {};
+    // Expect: { quoteResponse, userPublicKey, wrapAndUnwrapSol, ... }
+    if (!body.userPublicKey || !body.quoteResponse) {
+      return res.status(400).json({ error: "missing_swap_fields" });
     }
     const r = await fetch("https://quote-api.jup.ag/v6/swap", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        quoteResponse,
-        userPublicKey,
-        wrapAndUnwrapSol,              // auto wrap SOL
-        dynamicComputeUnitLimit: true, // speed
-        prioritizationFeeLamports: "auto"
-      })
+        ...body,
+        // sensible defaults:
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: null,
+      }),
     });
-    const data = await r.json();
-    // Returns { swapTransaction: base64, lastValidBlockHeight, ... }
-    res.json(data);
+    const j = await r.json();
+    return res.json(j);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "swap_error", detail: String(e) });
+    return res.status(500).json({ error: "swap_error", detail: String(e) });
   }
 });
 
-// ---------- Optional: simple “ingest” cache for links you paste ----------
-const mem = new Map(); // url -> summary
+// ---------- DexScreener: token price by mint ----------
+app.get("/api/dex/price", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ error: "no_token" });
+    const r = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${token}`
+    );
+    const j = await r.json();
+    const pairs = (j?.pairs || []).filter((p) => p.chainId === "solana");
+    if (!pairs.length) return res.json({ priceUsd: null });
+
+    // pick highest liquidity
+    pairs.sort(
+      (a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+    );
+    const p = pairs[0];
+    res.json({
+      priceUsd: Number(p.priceUsd || 0),
+      url: p.url,
+      pairAddress: p.pairAddress,
+      liquidityUsd: p.liquidity?.usd || 0,
+      baseSymbol: p.baseToken?.symbol,
+      baseAddress: p.baseToken?.address,
+      quoteSymbol: p.quoteToken?.symbol,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "dex_price_error", detail: String(e) });
+  }
+});
+
+// ---------- DexScreener: recent SOL pairs (simple feed) ----------
+app.get("/api/dexscreener/new", async (_req, res) => {
+  try {
+    // “search?q=solana” gives a broad set; sort by pairCreatedAt desc
+    const r = await fetch(
+      "https://api.dexscreener.com/latest/dex/search?q=solana"
+    );
+    const j = await r.json();
+    const items = (j?.pairs || [])
+      .filter((p) => p.chainId === "solana")
+      .sort((a, b) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0))
+      .slice(0, 30)
+      .map((p) => ({
+        baseSymbol: p.baseToken?.symbol,
+        baseAddress: p.baseToken?.address,
+        quoteSymbol: p.quoteToken?.symbol,
+        dexId: p.dexId,
+        url: p.url,
+        fdv: Number(p.fdv || 0),
+        liquidityUsd: Number(p.liquidity?.usd || 0),
+        pairCreatedAt: p.pairCreatedAt || null,
+      }));
+    res.json({ items });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "dex_new_error", detail: String(e) });
+  }
+});
+
+// ---------- Jupiter token list (cached) ----------
+let _tokenList = null;
+let _tokenListTime = 0;
+async function getJupTokens() {
+  const now = Date.now();
+  if (_tokenList && now - _tokenListTime < 5 * 60 * 1000) return _tokenList;
+  const r = await fetch("https://cache.jup.ag/tokens");
+  _tokenList = await r.json();
+  _tokenListTime = now;
+  return _tokenList;
+}
+app.get("/api/jup/token", async (req, res) => {
+  try {
+    const { mint } = req.query;
+    const list = await getJupTokens();
+    const t = list.find((x) => x.address === mint);
+    if (!t) return res.json({ found: false });
+    res.json({
+      found: true,
+      decimals: t.decimals,
+      symbol: t.symbol,
+      name: t.name,
+    });
+  } catch (e) {
+    res.status(500).json({ error: "jup_token_error", detail: String(e) });
+  }
+});
+
+// ---------- SOL price (USD) ----------
+app.get("/api/price/sol", async (_req, res) => {
+  try {
+    // Simple Coingecko call (public, rate-limited)
+    const r = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+    );
+    const j = await r.json();
+    return res.json({ usd: j?.solana?.usd || null });
+  } catch (e) {
+    return res.status(500).json({ error: "sol_price_error", detail: String(e) });
+  }
+});
+
+// ---------- Ingest + (optional) AI summarize ----------
 app.post("/api/ingest", async (req, res) => {
   try {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ error: "no_url" });
-    if (!OPENAI_API_KEY) return res.status(400).json({ error: "no_openai_key" });
 
-    // Very lightweight fetch of page text (best-effort)
-    const html = await (await fetch(url)).text();
-    const text = html.replace(/<script[\s\S]*?<\/script>/gi, "")
-                     .replace(/<style[\s\S]*?<\/style>/gi, "")
-                     .replace(/<[^>]+>/g, " ")
-                     .replace(/\s+/g, " ")
-                     .slice(0, 20000);
+    // Fetch page text (very simple - we’re not scraping video; we grab page text/meta)
+    const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" } });
+    const html = await r.text();
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 12000); // keep it modest
 
-    // Summarize with OpenAI for the AI panel
-    const { OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey: OPENAI_API_KEY });
-    const out = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: "Summarize this crypto video/article for a trading copilot. Extract tickers, chains, and actionable signals."},
-        { role: "user", content: text }
-      ]
-    });
-    const summary = out.choices?.[0]?.message?.content ?? "(no summary)";
-    mem.set(url, summary);
-    res.json({ ok: true, summary });
+    // Try OpenAI if available
+    let summary = null;
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const { default: OpenAI } = await import("openai"); // dynamic import
+        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const out = await client.chat.completions.create({
+          model: "gpt-4o-mini",
+          temperature: 0.3,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Summarize the content succinctly in bullet points. Include any calls-to-action, risks, or trading-relevant details.",
+            },
+            {
+              role: "user",
+              content:
+                `URL: ${url}\n\nHere is page text (may be noisy):\n"""${text}"""`,
+            },
+          ],
+        });
+        summary = out?.choices?.[0]?.message?.content?.trim() || null;
+      } catch (e) {
+        console.warn("OpenAI summarize failed:", e.message);
+      }
+    }
+    if (!summary) {
+      summary =
+        "AI summarization unavailable. Here’s a short preview:\n" +
+        text.slice(0, 500) +
+        (text.length > 500 ? "…" : "");
+    }
+    return res.json({ ok: true, summary });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "ingest_error", detail: String(e) });
+    return res.status(500).json({ error: "ingest_error", detail: String(e) });
   }
 });
 
-// ---------- Fallback: serve /public/index.html ----------
+// ---------- Fallback: serve /public/index.html or message ----------
 app.get("*", (_req, res) => {
-  const p = path.join(PUBLIC_DIR, "index.html");
-  if (fs.existsSync(p)) return res.sendFile(p);
-  res.send("<h3>Ghost Sniper</h3><p>index.html not found — commit your front-end in /public/index.html</p>");
+  if (PUBLIC_DIR) {
+    const indexPath = path.join(PUBLIC_DIR, "index.html");
+    if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+    return res
+      .status(200)
+      .type("text/plain")
+      .send("index.html not found — commit your front-end to /public/index.html");
+  }
+  return res
+    .status(200)
+    .type("text/plain")
+    .send("No /public folder found. Create /public/index.html and redeploy.");
 });
 
-app.listen(PORT, () => console.log(`🚀 Ghost Sniper running on ${PORT}`));
+// ---------- Start ----------
+app.listen(PORT, () =>
+  console.log(`🚀 Ghost Sniper running on port ${PORT}`)
+);
