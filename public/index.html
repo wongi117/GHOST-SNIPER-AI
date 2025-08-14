@@ -1,291 +1,233 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>👻 Ghost Sniper — Live</title>
-<style>
-:root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#2ecc71;--bad:#ff6b6b}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-header{display:flex;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid #1f2a40;position:sticky;top:0;background:#0b1220cc;backdrop-filter:blur(8px);z-index:10}
-h1{margin:0;font-size:20px}
-.sub{color:var(--muted);font-size:13px}
-.wrap{max-width:1250px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
-@media(max-width:1020px){.wrap{display:block}}
-.card{background:var(--card);border:1px solid #1f2a40;border-radius:12px;overflow:hidden}
-.card h2{margin:0;padding:12px 14px;border-bottom:1px solid #1f2a40;font-size:16px}
-.section{padding:12px 14px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.kv{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
-input,select,textarea{background:#0b1326;border:1px solid #1f2a40;border-radius:8px;color:#fff;padding:9px 10px;font:14px/1.2 inherit;width:100%}
-input[type="number"]{max-width:130px}
-.badge{display:inline-block;padding:3px 8px;border:1px solid #1f2a40;border-radius:999px;font-size:12px;color:var(--muted)}
-.btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;font-weight:600;color:#fff;cursor:pointer}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.primary{background:#2166ff}
-.btn.ok{background:#2a3957}
-.btn.sell{background:#a03d3d}
-a{color:#9cd1ff;text-decoration:none}a:hover{text-decoration:underline}
-hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
-pre{white-space:pre-wrap;background:#081127;border:1px solid #1f2a40;padding:10px;border-radius:10px;max-height:36vh;overflow:auto}
-.list{display:grid;gap:8px}
-.item{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px;border:1px solid #1f2a40;border-radius:10px;background:#0b1326}
-.item .meta{color:var(--muted);font-size:12px}
-.small{font-size:12px;color:var(--muted)}
-.tag{font-size:11px;padding:2px 6px;border:1px solid #1f2a40;border-radius:999px;margin-left:6px}
-.pnl-pos{color:var(--ok)} .pnl-neg{color:var(--bad)}
-</style>
-<script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>👻 Ghost Sniper — Live</title>
+  <style>
+    :root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#25c39e}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui,Segoe UI,Arial}
+    header{display:flex;gap:10px;align-items:baseline;padding:16px 18px;border-bottom:1px solid #1f2a40}
+    h1{margin:0;font-size:22px} .sub{color:var(--muted);font-size:13px}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    .grid{display:grid;gap:12px}
+    @media (min-width: 980px){ .grid{grid-template-columns: 1.1fr .9fr} }
+    .card{background:var(--card);border:1px solid #1f2a40;border-radius:10px;padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{min-width:120px;font-size:13px;color:var(--muted)}
+    input,select{background:#0b1326;border:1px solid #1f2a40;color:#fff;border-radius:8px;padding:10px 12px;outline:none}
+    input:focus,select:focus{border-color:#2a6bff}
+    .btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;color:#fff;cursor:pointer}
+    .pri{background:#2166ff} .sec{background:#2a3957}
+    .ok{color:var(--ok)} .muted{color:var(--muted)}
+    pre{background:#0a0f1d;border:1px solid #1f2a40;border-radius:10px;padding:12px;white-space:pre-wrap;max-height:260px;overflow:auto}
+    a, .link{color:#9cd1ff;text-decoration:none} a:hover{ text-decoration: underline }
+    hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
+    .badge{display:inline-block;background:#132244;border:1px solid #1f2a40;border-radius:999px;padding:3px 8px;font-size:12px}
+  </style>
+  <!-- Only needed if you later use web3.js; not required for this basic flow -->
+  <!-- <script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script> -->
 </head>
 <body>
-<header>
-  <h1>👻 Ghost Sniper</h1>
-  <div class="sub">Connect → pick target → quote → sign → swap. No keys on server.</div>
-</header>
+  <header>
+    <h1>👻 Ghost Sniper</h1>
+    <div class="sub">Connect → quote → sign &amp; send. You sign — no keys on server.</div>
+  </header>
 
-<div class="wrap">
-  <!-- LEFT: Intel + feed -->
-  <section class="card">
-    <h2>📡 Market Intel</h2>
-    <div class="section">
-      <div class="row">
-        <span class="badge" id="solp">SOL $–</span>
-        <span class="badge">Jupiter v6</span>
-        <span class="badge">DexScreener</span>
+  <div class="wrap grid">
+    <!-- LEFT: Wallet & Sniper controls -->
+    <section class="card">
+      <h2 style="margin:0 0 12px 0;">⚙️ Wallet & Quick Trade</h2>
+
+      <!-- iPhone helper -->
+      <div class="row" id="iosHelperRow" style="display:none;margin-bottom:8px;">
+        <button class="btn sec" id="openPhantomBtn">Open Phantom (iPhone)</button>
+        <span class="muted">Use this on iOS Safari to allow wallet injection.</span>
       </div>
 
-      <hr/>
-      <div class="row">
-        <input id="ingestUrl" placeholder="Paste YouTube / TikTok / article URL for AI summary"/>
-        <button class="btn ok" id="btnIngest">Summarize</button>
+      <!-- Connect row -->
+      <div class="row" style="margin-bottom:10px;">
+        <button class="btn pri" id="connectPhantom">Connect Phantom</button>
+        <span class="badge" id="walletLabel">Wallet: <span class="muted">Not connected</span></span>
       </div>
-      <pre id="summary" class="small">Tip: paste a link. The server fetches text; AI summarizes for your playbook.</pre>
-    </div>
 
-    <h2>⚡ New Pairs (DexScreener · Solana)</h2>
-    <div class="section">
+      <!-- Inputs -->
       <div class="row">
-        <input id="filter" placeholder="filter symbol / pump / raydium…"/>
-        <button class="btn ok" id="btnReload">Reload</button>
+        <label>Amount (SOL)</label>
+        <input id="amt" type="number" step="0.0001" value="0.01" style="width:140px" />
+        <label>Slippage (bps)</label>
+        <input id="slip" type="number" step="1" value="50" style="width:120px" />
       </div>
-      <div id="feed" class="list" style="margin-top:10px"></div>
-      <div class="small" style="margin-top:10px">Source: DexScreener latest SOL pairs. “Snipe” = SOL→base.</div>
-    </div>
-  </section>
-
-  <!-- RIGHT: Wallet + Sniper + Positions -->
-  <section class="card">
-    <h2>🧰 Wallet & Sniper</h2>
-    <div class="section">
-      <div class="row">
-        <button class="btn ok" id="openPhantom" style="display:none">Open Phantom (iOS)</button>
-        <button class="btn primary" id="connectPhantom">Connect Phantom</button>
-      </div>
-      <div class="kv" style="margin-top:8px">
-        <div>Address</div><input id="addr" readonly placeholder="—"/>
-        <div>Amount (SOL)</div><input id="amt" type="number" step="0.001" value="0.02"/>
-        <div>Slippage (bps)</div><input id="slip" type="number" step="1" value="100"/>
-        <div>Priority (SOL)</div><input id="prio" type="number" step="0.000001" value="0.0005"/>
-      </div>
-      <hr/>
-      <div class="kv">
-        <div>Input</div>
-        <select id="inMint">
-          <option value="So11111111111111111111111111111111111111112">SOL</option>
-          <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
+      <div class="row" style="margin-top:8px;">
+        <label>Pool</label>
+        <select id="pool" style="width:160px">
+          <option value="pumpfun" selected>Pump.fun</option>
+          <option value="jup">Jupiter Route</option>
         </select>
-        <div>Output</div>
-        <input id="outMint" placeholder="Target token mint (from feed or paste)"/>
+
+        <label>Pair</label>
+        <select id="pair" style="min-width:220px">
+          <!-- Popular quick pairs (you can extend) -->
+          <option value="SOL-USDC">SOL → USDC</option>
+          <option value="USDC-SOL">USDC → SOL</option>
+        </select>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn ok" id="btnQuote">Get Quote</button>
-        <button class="btn primary" id="btnSwap" disabled>Sign & Swap</button>
-        <button class="btn sell" id="btnSell" disabled>Quick Sell (reverse)</button>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="btn pri" id="btnQuote">Get Quote</button>
+        <button class="btn sec" id="btnSwap">Swap</button>
+        <span class="muted">Test tiny sizes first.</span>
       </div>
-      <hr/>
+
+      <hr />
+
       <div class="row">
-        <label><input type="checkbox" id="takeProfit" checked> TP +12%</label>
-        <label><input type="checkbox" id="stopLoss" checked> SL -8%</label>
-        <label><input type="checkbox" id="autoSell"> Auto-sell thin liq</label>
+        <label>Paste a YouTube/TikTok URL</label>
+        <input id="mediaUrl" placeholder="https://youtube.com/… or https://www.tiktok.com/…" style="flex:1 1 340px" />
+        <button class="btn sec" id="btnIngest">Ingest</button>
       </div>
-      <hr/>
-      <pre id="log">Ready.\n</pre>
-    </div>
+      <div class="muted" style="margin-top:6px">
+        Server will fetch captions/transcripts, summarize, and cache. Then you can ask the AI about the video.
+      </div>
+    </section>
 
-    <h2>📒 Positions</h2>
-    <div class="section">
-      <div class="small" style="margin-bottom:8px">Local to your browser (no server custody). Auto TP/SL is evaluated here; sells still require your signature.</div>
-      <div id="positions" class="list"></div>
-    </div>
-  </section>
-</div>
+    <!-- RIGHT: Console output -->
+    <section class="card">
+      <h2 style="margin:0 0 12px 0;">🧵 Console</h2>
+      <pre id="out">Ready</pre>
+    </section>
+  </div>
 
-<script>
-const log=(...a)=>{const el=$('log');el.textContent+=a.join(' ')+'\\n';el.scrollTop=el.scrollHeight}
-const $=id=>document.getElementById(id);
-const SOL_MINT="So11111111111111111111111111111111111111112";
-let phantom,pubkey,lastQuote;
+  <script>
+    // ---------- Utility logging ----------
+    const $ = (sel) => document.querySelector(sel);
+    const out = $('#out');
+    function log(...args){ out.textContent += '\\n' + args.map(a => typeof a==='string'?a:JSON.stringify(a,null,2)).join(' '); out.scrollTop = out.scrollHeight; }
+    function setWalletLabel(text, ok=false){ $('#walletLabel').innerHTML = 'Wallet: ' + (ok ? '<span class="ok">'+text+'</span>' : '<span class="muted">'+text+'</span>'); }
 
-const store={
-  key:()=>`positions:v1:${pubkey||'anon'}`,
-  get(){try{return JSON.parse(localStorage.getItem(this.key())||'[]')}catch{return[]}},
-  set(v){localStorage.setItem(this.key(),JSON.stringify(v))}
-};
+    // ---------- iOS helper visibility ----------
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if(isIOS){ $('#iosHelperRow').style.display = 'flex'; }
+    $('#openPhantomBtn')?.addEventListener('click', ()=>{ location.href = 'https://phantom.app/ul/browse/'+encodeURIComponent(location.href); });
 
-// iOS helper
-(function(){const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent); if(isIOS)$('openPhantom').style.display='inline-block';
- $('openPhantom').onclick=()=>location.href="https://phantom.app/ul/browse/"+encodeURIComponent(location.href)})();
-
-// Connect
-$('connectPhantom').onclick=async()=>{
-  try{
-    if(!window.solana?.isPhantom){log("Install Phantom and re-open.");return}
-    phantom=window.solana; const r=await phantom.connect();
-    pubkey=r.publicKey.toString(); $('addr').value=pubkey; log("Phantom:",pubkey);
-    renderPositions(); // switch namespace
-  }catch(e){log("connect_error:",e.message||e)}
-};
-
-// Prices
-async function refreshSolPrice(){try{const r=await fetch('/api/price/sol'); const j=await r.json(); if(j?.usd)$('solp').textContent=`SOL $${j.usd}`}catch{}}
-refreshSolPrice(); setInterval(refreshSolPrice,30_000);
-
-// AI ingest
-$('btnIngest').onclick=async()=>{
-  const url=$('ingestUrl').value.trim(); if(!url)return; $('summary').textContent="Summarizing…";
-  try{const r=await fetch('/api/ingest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url})});
-    const j=await r.json(); $('summary').textContent=j.summary||JSON.stringify(j,null,2)}
-  catch(e){$('summary').textContent="Ingest failed: "+(e.message||e)}
-};
-
-// Feed
-$('btnReload').onclick=loadFeed; loadFeed(); setInterval(loadFeed,20_000);
-async function loadFeed(){
-  $('feed').innerHTML='<div class="small">Loading…</div>';
-  try{
-    const r=await fetch('/api/dexscreener/new'); const j=await r.json(); const q=$('filter').value.trim().toLowerCase();
-    const items=(j.items||[]).filter(x=>{const s=`${x.baseSymbol} ${x.quoteSymbol} ${x.dexId} ${x.url} ${(x.flags||[]).join(' ')}`.toLowerCase();return q? s.includes(q):true});
-    $('feed').innerHTML=''; items.forEach(p=>{
-      const row=document.createElement('div'); row.className='item';
-      row.innerHTML=`<div>
-        <div><b>${p.baseSymbol||'???'}</b> / ${p.quoteSymbol} · ${p.dexId} · <a href="${p.url}" target="_blank">chart</a>
-          <span class="tag">liq $${fmt(p.liquidityUsd,0)}</span>
-          <span class="tag">FDV $${fmt(p.fdv,0)}</span>
-        </div>
-        <div class="meta small">${p.baseAddress}</div></div>
-        <div class="row"><button class="btn ok">Quote</button><button class="btn primary">Snipe</button></div>`;
-      const [bq,bs]=row.querySelectorAll('button');
-      bq.onclick=()=>quote(SOL_MINT,p.baseAddress);
-      bs.onclick=()=>snipe(SOL_MINT,p.baseAddress);
-      $('feed').appendChild(row);
+    // ---------- Phantom connect ----------
+    let walletAddr = null;
+    $('#connectPhantom').addEventListener('click', async () => {
+      try{
+        if(!window.solana){
+          log('Phantom not injected. If on iOS, tap "Open Phantom" first.');
+          setWalletLabel('Not injected'); return;
+        }
+        const resp = await window.solana.connect();
+        walletAddr = resp.publicKey?.toString?.() || resp.publicKey;
+        setWalletLabel(walletAddr, true);
+        log('Phantom connected:', walletAddr);
+      }catch(e){
+        log('connect error:', String(e));
+      }
     });
-  }catch(e){$('feed').innerHTML=`<div class="small">Feed error: ${e.message||e}</div>`}
-}
 
-// Quote & Swap
-$('btnQuote').onclick=()=>quote($('inMint').value,$('outMint').value);
-async function quote(inputMint,outputMint){
-  try{
-    if(!pubkey) throw new Error("Connect wallet first");
-    if(!outputMint) outputMint=$('outMint').value.trim(); if(!outputMint) throw new Error("Set output mint");
-    $('outMint').value=outputMint;
-    const lamports = m=>Math.round(Number(m)*1e9);
-    const amountLamports = inputMint===SOL_MINT ? lamports($('amt').value||"0.02") : Math.round(Number($('amt').value||"1")*1e6);
-    const q=new URL('/api/jup/quote',location.origin);
-    q.searchParams.set('inputMint',inputMint); q.searchParams.set('outputMint',outputMint);
-    q.searchParams.set('amount',amountLamports); q.searchParams.set('slippageBps',$('slip').value||"100");
-    log("Quoting…"); const r=await fetch(q); const j=await r.json();
-    if(!j?.outAmount){log("Quote failed:",JSON.stringify(j)); return}
-    lastQuote=j; $('btnSwap').disabled=false; $('btnSell').disabled=false;
-    log(`Quote ok: in ${j.inAmount} → out ${j.outAmount} hops:${j.routePlan?.length||1}`);
-  }catch(e){log("quote_error:",e.message||e)}
-}
+    // ---------- Mint dictionary (quick presets) ----------
+    // Mainnet mints
+    const MINTS = {
+      SOL:  'So11111111111111111111111111111111111111112', // WSOL
+      USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+    };
 
-$('btnSwap').onclick=async()=>{ // BUY
-  try{
-    if(!pubkey) throw new Error("Connect wallet first");
-    if(!lastQuote) throw new Error("Get a quote first");
-    log("Building swap…");
-    const r=await fetch('/api/jup/swap',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteResponse:lastQuote,userPublicKey:pubkey,wrapAndUnwrapSol:true})});
-    const j=await r.json(); if(!j.swapTransaction){log("swap_build_error:",JSON.stringify(j)); return}
-    const txBytes=Uint8Array.from(atob(j.swapTransaction),c=>c.charCodeAt(0));
-    const { signature } = await window.solana.signAndSendTransaction({ serializedTransaction: txBytes });
-    log("Submitted:",signature);
-
-    // Track position locally (approximate)
-    const outMint=$('outMint').value.trim();
-    const entryPriceUsd=await priceUsd(outMint);
-    const sizeSol=Number($('amt').value||"0.02");
-    const tp=$('takeProfit').checked?0.12:0; const sl=$('stopLoss').checked?0.08:0;
-    const list=store.get();
-    list.push({ mint: outMint, sizeSol, entryPriceUsd, tp, sl, active:true, createdAt:Date.now(), signature });
-    store.set(list); renderPositions();
-  }catch(e){log("swap_error:",e.message||e)}
-};
-
-$('btnSell').onclick=async()=>{ // reverse quick sell
-  try{
-    const inMint=$('outMint').value.trim(); if(!inMint) throw new Error("No output mint set");
-    const outMint=$('inMint').value;
-    await quote(inMint,outMint);
-    $('btnSwap').click();
-  }catch(e){log("sell_error:",e.message||e)}
-};
-
-async function snipe(inMint,outMint){$('inMint').value=inMint;$('outMint').value=outMint;await quote(inMint,outMint);$('btnSwap').click()}
-
-// Positions
-function renderPositions(){
-  const box=$('positions'); box.innerHTML='';
-  const list=store.get().filter(p=>p.active);
-  if(!list.length){box.innerHTML='<div class="small">No active positions.</div>'; return;}
-  list.forEach((p,idx)=>{
-    const row=document.createElement('div'); row.className='item'; row.id=`pos-${idx}`;
-    row.innerHTML=`<div>
-      <div><b>${p.mint.slice(0,6)}…${p.mint.slice(-5)}</b>
-        <span class="tag">size ~ ${p.sizeSol} SOL</span>
-        <span class="tag">entry $${fmt(p.entryPriceUsd)}</span>
-        <span class="tag">TP ${Math.round(p.tp*100)}% / SL ${Math.round(p.sl*100)}%</span>
-      </div>
-      <div class="meta small" id="meta-${idx}">—</div>
-    </div>
-    <div class="row">
-      <button class="btn primary" id="sell-${idx}">Sell</button>
-      <button class="btn ok" id="off-${idx}">${p.active?'Disable':'Enable'}</button>
-    </div>`;
-    box.appendChild(row);
-    $('sell-'+idx).onclick=()=>manualSell(p);
-    $('off-'+idx).onclick=()=>togglePos(idx);
-  });
-}
-function togglePos(i){const list=store.get(); list[i].active=!list[i].active; store.set(list); renderPositions()}
-async function manualSell(p){ $('outMint').value=SOL_MINT; await quote(p.mint,SOL_MINT); $('btnSwap').click(); }
-
-// Auto TP/SL loop
-setInterval(async ()=>{
-  const list=store.get(); if(!list.length || !pubkey) return;
-  for (let i=0;i<list.length;i++){
-    const p=list[i]; if(!p.active) continue;
-    const px=await priceUsd(p.mint); if(!px) continue;
-    const change=(px - p.entryPriceUsd)/p.entryPriceUsd;
-    const meta=$('meta-'+i); if(meta){
-      const cls = change>=0 ? 'pnl-pos':'pnl-neg';
-      meta.innerHTML = `now $${fmt(px)} · <span class="${cls}">${(change*100).toFixed(2)}%</span>`;
+    function getPairMints(pair){
+      if(pair === 'SOL-USDC') return { inputMint: MINTS.SOL, outputMint: MINTS.USDC };
+      if(pair === 'USDC-SOL') return { inputMint: MINTS.USDC, outputMint: MINTS.SOL };
+      throw new Error('Unsupported pair selection');
     }
-    // thin-liquidity auto-sell hook (optional): you could fetch liquidity with /api/dex/price and check p.liquidityUsd
-    if (p.tp && change>=p.tp){ log("TP hit → sell", p.mint); await quote(p.mint,SOL_MINT); $('btnSwap').click(); p.active=false; }
-    if (p.sl && change<=-p.sl){ log("SL hit → sell", p.mint); await quote(p.mint,SOL_MINT); $('btnSwap').click(); p.active=false; }
-  }
-  store.set(list); renderPositions();
-}, 5000);
 
-// Utils
-async function priceUsd(mint){ try{ const r=await fetch(`/api/dex/price?token=${mint}`); const j=await r.json(); return Number(j?.priceUsd||0)||null } catch { return null } }
-const fmt=(n,d=4)=>Number(n||0).toFixed(d);
+    // ---------- Quote ----------
+    let lastQuote = null;
+    $('#btnQuote').addEventListener('click', async () => {
+      try{
+        const { inputMint, outputMint } = getPairMints($('#pair').value);
+        const amountSol = Number($('#amt').value || '0');
+        if(!amountSol || amountSol <= 0) throw new Error('Enter amount');
+        // Convert to lamports if input is SOL
+        let amount = amountSol;
+        if(inputMint === MINTS.SOL){
+          amount = Math.round(amountSol * 1e9);
+        } else {
+          // If the input is not SOL (e.g., USDC), you should change this to smallest unit for that mint (USDC=6dp)
+          amount = Math.round(amountSol * 1e6);
+        }
 
-// init
-$('summary').textContent += "";
-</script>
+        const u = new URL('/api/jup/quote', location.origin);
+        u.searchParams.set('inputMint', inputMint);
+        u.searchParams.set('outputMint', outputMint);
+        u.searchParams.set('amount', String(amount));
+        u.searchParams.set('slippageBps', String(Number($('#slip').value || '50')));
+
+        log('Fetching quote…');
+        const q = await fetch(u).then(r=>r.json());
+        lastQuote = q?.data || null;
+        if(!lastQuote) throw new Error('No route from Jupiter');
+        log('QUOTE OK', { in: inputMint, out: outputMint, amount, outAmount: lastQuote?.outAmount });
+      }catch(e){
+        log('quote error:', String(e));
+      }
+    });
+
+    // ---------- Swap (sign & send with Phantom) ----------
+    $('#btnSwap').addEventListener('click', async () => {
+      try{
+        if(!walletAddr){ throw new Error('Connect Phantom first'); }
+        if(!lastQuote){ throw new Error('Get a quote first'); }
+
+        log('Building swap tx…');
+        const res = await fetch('/api/jup/swap', {
+          method: 'POST',
+          headers: { 'content-type':'application/json' },
+          body: JSON.stringify({
+            userPublicKey: walletAddr,
+            wrapAndUnwrapSol: true,
+            quoteResponse: lastQuote
+          })
+        }).then(r=>r.json());
+
+        const txB64 = res?.swapTransaction;
+        if(!txB64){ throw new Error('Bad swap response from server'); }
+
+        // Convert base64 -> Uint8Array for Phantom
+        const txBytes = Uint8Array.from(atob(txB64), c => c.charCodeAt(0));
+
+        log('Requesting Phantom to sign & send…');
+        // Most Phantom versions accept this shape:
+        const signed = await window.solana.signAndSendTransaction({ message: txBytes });
+        const sig = signed?.signature || signed;
+        log('✅ sent:', sig);
+      }catch(e){
+        log('swap error:', String(e));
+      }
+    });
+
+    // ---------- Ingest (YouTube/TikTok) ----------
+    $('#btnIngest').addEventListener('click', async () => {
+      try{
+        const url = ($('#mediaUrl').value || '').trim();
+        if(!url) throw new Error('Paste a media URL first');
+        log('Ingesting:', url);
+        const j = await fetch('/api/ingest', {
+          method:'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ url })
+        }).then(r=>r.json());
+        log('INGEST OK', j);
+      }catch(e){
+        log('ingest error:', String(e));
+      }
+    });
+
+    // ---------- Warm tips ----------
+    log('Tips:');
+    log('• On iPhone, tap "Open Phantom" first so the wallet can inject into Safari.');
+    log('• Start with small amounts; slippage is in basis points (50 = 0.50%).');
+    log('• You always sign locally; the server never sees your keys.');
+  </script>
 </body>
 </html>
