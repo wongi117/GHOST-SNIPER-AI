@@ -1,107 +1,249 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>👻 Ghost Sniper — Day-0</title>
-
-<style>
-    body {
-        margin: 0;
-        background: #0b1220;
-        color: white;
-        font-family: Arial, sans-serif;
-    }
-    header {
-        padding: 16px 20px;
-        border-bottom: 1px solid #1f2a40;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    h1 {
-        margin: 0;
-        font-size: 20px;
-    }
-    button {
-        padding: 10px 16px;
-        background: #4cafef;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    button:hover {
-        background: #6bd6ff;
-    }
-    .wallet-status {
-        margin-top: 10px;
-        font-size: 14px;
-        opacity: 0.8;
-    }
-    main {
-        padding: 20px;
-    }
-    iframe {
-        border: none;
-        width: 100%;
-        height: 600px;
-        border-radius: 6px;
-    }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>👻 Ghost Sniper — Trade + Chat</title>
+  <style>
+    :root { --bg:#0b1220; --card:#0f1a33; --text:#e6f0ff; --muted:#9fb5d9; --accent:#7ee787; --accent2:#8ae2ff; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    header{padding:16px 20px;border-bottom:1px solid #1f2a40;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    h1{margin:0;font-size:20px} .sub{opacity:.8;font-size:12px}
+    .wrap{max-width:1100px;margin:16px auto;padding:0 16px;display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+    @media (max-width:960px){ .wrap{grid-template-columns:1fr} }
+    .card{background:var(--card);border:1px solid #23304d;border-radius:12px;overflow:hidden}
+    .card h2{margin:0;padding:14px 16px;border-bottom:1px solid #1f2a40;font-size:16px}
+    .pad{padding:14px 16px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{display:inline-block;background:#213a75;border:1px solid #2b54a5;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;text-decoration:none}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn.good{background:#144b2f;border-color:#1d7c4f}
+    input,select,textarea{width:100%;background:#0b1329;color:var(--text);border:1px solid #223356;border-radius:10px;padding:10px}
+    textarea{min-height:96px;resize:vertical}
+    .muted{color:var(--muted)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;}
+    .stack{display:flex;flex-direction:column;gap:10px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .pill{display:inline-block;padding:4px 8px;border:1px solid #28406f;border-radius:999px;font-size:12px}
+    .note{background:#0c1b37;border:1px dashed #2a4c91;border-radius:12px;padding:10px}
+  </style>
 </head>
-
 <body>
-<header>
+  <header>
     <h1>👻 Ghost Sniper</h1>
-    <div>
-        <button id="connectPhantom">Connect Phantom (Solana)</button>
-        <button id="connectMetaMask">Connect MetaMask (Ethereum)</button>
-    </div>
-</header>
+    <span class="sub">Chat on the right. Trade on the left. <b>You sign — no keys on server.</b></span>
+  </header>
 
-<main>
-    <div class="wallet-status" id="walletStatus">No wallet connected.</div>
+  <div class="wrap">
 
-    <h2>🔄 Solana Swaps (Jupiter Plugin)</h2>
-    <iframe id="jupiterFrame" src="https://jup.ag/swap/SOL-USDC"></iframe>
+    <!-- LEFT: Trading + Wallets -->
+    <section class="card">
+      <h2>Wallets & Trading</h2>
+      <div class="pad stack">
 
-    <h2>💱 Ethereum Swaps (via 0x API)</h2>
-    <p>Use MetaMask to trade Ethereum tokens directly.</p>
-</main>
+        <!-- iPhone open-in-app helpers -->
+        <div class="note stack">
+          <div class="row">
+            <a class="btn" id="openPhantom" href="#" rel="noopener">Open in Phantom (iPhone)</a>
+            <a class="btn" id="openMetaMask" href="#" rel="noopener">Open in MetaMask (iPhone)</a>
+          </div>
+          <div class="muted">
+            On iPhone, most wallets require opening this page **inside** the wallet app’s browser.  
+            Use the buttons above. On desktop, just use the Connect buttons below.
+          </div>
+        </div>
 
-<script>
-/* ===== Phantom Wallet (Solana) ===== */
-const phantomBtn = document.getElementById('connectPhantom');
-phantomBtn.addEventListener('click', async () => {
-    if (window.solana && window.solana.isPhantom) {
-        try {
-            const resp = await window.solana.connect();
-            document.getElementById('walletStatus').innerText = `Phantom Connected: ${resp.publicKey.toString()}`;
-        } catch (err) {
-            console.error(err);
-        }
-    } else {
-        alert('Phantom Wallet not found. Install it from https://phantom.app');
-    }
-});
+        <!-- Phantom (Solana) -->
+        <div class="card">
+          <h2>Solana — Phantom</h2>
+          <div class="pad stack">
+            <div class="row">
+              <button class="btn good" id="connectPhantom">Connect Phantom</button>
+              <span class="pill mono" id="phantomStatus">Not connected</span>
+            </div>
+            <div class="mono" id="phantomPk"></div>
+          </div>
+        </div>
 
-/* ===== MetaMask Wallet (Ethereum) ===== */
-const metaMaskBtn = document.getElementById('connectMetaMask');
-metaMaskBtn.addEventListener('click', async () => {
-    if (typeof window.ethereum !== 'undefined') {
-        try {
-            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-            document.getElementById('walletStatus').innerText = `MetaMask Connected: ${accounts[0]}`;
-        } catch (err) {
-            console.error(err);
-        }
-    } else {
-        alert('MetaMask not found. Install it from https://metamask.io');
-    }
-});
-</script>
+        <!-- MetaMask (Ethereum) -->
+        <div class="card" style="margin-top:10px">
+          <h2>Ethereum — MetaMask</h2>
+          <div class="pad stack">
+            <div class="row">
+              <button class="btn good" id="connectMetaMask">Connect MetaMask</button>
+              <span class="pill mono" id="mmStatus">Not connected</span>
+            </div>
+            <div class="mono" id="mmAddr"></div>
+            <div class="mono" id="mmNet"></div>
+          </div>
+        </div>
 
+        <!-- Simple Trade (placeholder) -->
+        <div class="card" style="margin-top:10px">
+          <h2>Execute Trade (demo)</h2>
+          <div class="pad stack">
+            <div class="grid2">
+              <div>
+                <label class="muted">Chain</label>
+                <select id="chainSel">
+                  <option value="solana">solana</option>
+                  <option value="ethereum">ethereum</option>
+                </select>
+              </div>
+              <div>
+                <label class="muted">Amount</label>
+                <input id="amount" placeholder="e.g., 1.0" />
+              </div>
+            </div>
+            <div class="grid2">
+              <div>
+                <label class="muted">From Token / Mint</label>
+                <input id="fromToken" placeholder="SOL or 0xToken..." />
+              </div>
+              <div>
+                <label class="muted">To Token / Mint</label>
+                <input id="toToken" placeholder="USDC or 0xToken..." />
+              </div>
+            </div>
+            <button class="btn" id="doTrade">Submit Trade (server demo)</button>
+            <div class="mono" id="tradeOut"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT: Chat -->
+    <aside class="card">
+      <h2>Ghost Sniper Chat</h2>
+      <div class="pad stack">
+        <div class="row">
+          <span class="pill">API → <code class="mono">/chat</code></span>
+          <span class="pill">Model: <code class="mono">gpt-4o-mini</code></span>
+        </div>
+        <textarea id="chatInput" placeholder="Ask Ghost Sniper for a strategy, quote, or to prep a trade..."></textarea>
+        <button class="btn" id="sendChat">Send</button>
+        <div class="mono" id="chatOut"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script>
+    // --- Helpers
+    const $ = (id) => document.getElementById(id);
+    const show = (id, text) => { $(id).textContent = (typeof text === 'string') ? text : JSON.stringify(text, null, 2); };
+
+    // --- Deep links (iPhone open-in-app)
+    // Replace with your production domain if you use a custom domain.
+    const dappUrl = window.location.origin; // good on Railway
+    // Phantom deeplink — recommended workflow is: open your *dapp URL* inside Phantom’s browser.
+    // This universal link prompts Phantom to open and load your site:
+    $('openPhantom').href = `https://phantom.app/ul/browse/${encodeURIComponent(dappUrl)}`;
+    // MetaMask deep link — same idea:
+    $('openMetaMask').href = `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//,'')}`;
+
+    // --- Phantom (Solana) connect
+    const getPhantomProvider = () => {
+      if ('phantom' in window) {
+        const provider = window.phantom?.solana;
+        if (provider?.isPhantom) return provider;
+      }
+      return null;
+    };
+
+    $('connectPhantom').onclick = async () => {
+      const provider = getPhantomProvider();
+      if (!provider) {
+        alert('Phantom not detected. On iPhone, tap “Open in Phantom (iPhone)” first.');
+        return;
+      }
+      try {
+        const { publicKey } = await provider.connect({ onlyIfTrusted: false });
+        show('phantomStatus', 'Connected');
+        show('phantomPk', `Public Key: ${publicKey.toString()}`);
+
+        // (Optional) Tell the server you connected:
+        await fetch('/connect-phantom', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ publicKey: publicKey.toString(), platform: navigator.userAgent })
+        });
+      } catch (err) {
+        show('phantomStatus', 'Error');
+        show('phantomPk', String(err));
+      }
+    };
+
+    // --- MetaMask (Ethereum) connect
+    const getEthereum = () => window.ethereum || null;
+
+    $('connectMetaMask').onclick = async () => {
+      const eth = getEthereum();
+      if (!eth) {
+        alert('MetaMask not detected. On iPhone, tap “Open in MetaMask (iPhone)” first.');
+        return;
+      }
+      try {
+        // Request accounts
+        const accounts = await eth.request({ method: 'eth_requestAccounts' });
+        const addr = accounts && accounts[0];
+        show('mmStatus', 'Connected');
+        show('mmAddr', `Address: ${addr}`);
+
+        // Network
+        const chainId = await eth.request({ method: 'eth_chainId' });
+        show('mmNet', `chainId: ${chainId}`);
+
+        // Notify server (optional)
+        await fetch('/connect-metamask', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ address: addr, chainId })
+        });
+      } catch (err) {
+        show('mmStatus', 'Error');
+        show('mmAddr', String(err));
+      }
+    };
+
+    // --- Chat
+    $('sendChat').onclick = async () => {
+      const text = $('chatInput').value.trim();
+      if (!text) return;
+      show('chatOut', '…thinking…');
+      try {
+        const r = await fetch('/chat', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ messages: [{ role:'user', content:text }] })
+        });
+        const data = await r.json();
+        // Support either {message:""} or full {choices:[{message:{content}}]}
+        const reply = data?.message || data?.choices?.[0]?.message?.content || JSON.stringify(data);
+        show('chatOut', reply);
+      } catch (e) {
+        show('chatOut', 'Error: ' + String(e));
+      }
+    };
+
+    // --- Demo trade -> calls your backend placeholder
+    $('doTrade').onclick = async () => {
+      const payload = {
+        chain: $('chainSel').value,
+        fromToken: $('fromToken').value.trim(),
+        toToken: $('toToken').value.trim(),
+        amount: $('amount').value.trim()
+      };
+      show('tradeOut', 'Submitting…');
+      try {
+        const r = await fetch('/execute-trade', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        show('tradeOut', data);
+      } catch (e) {
+        show('tradeOut', 'Error: ' + String(e));
+      }
+    };
+  </script>
 </body>
 </html>
