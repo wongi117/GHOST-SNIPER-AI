@@ -1,75 +1,216 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>👻 Ghost Sniper — Ultra</title>
-<link rel="stylesheet" href="ghost.css" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>👻 Ghost Sniper — Fast Pump.fun</title>
+<link rel="stylesheet" href="/ghost.css"/>
 <script src="https://unpkg.com/@solana/web3.js@1.95.2/lib/index.iife.min.js"></script>
-<style>
-  .grid{display:grid;gap:10px}
-  @media(min-width:900px){.grid{grid-template-columns:1.2fr .8fr}}
-  .half{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-</style>
+<style>.ok{color:#41d392}.bad{color:#ff6a6a}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}</style>
 </head>
 <body>
 <header>
-  <h1>👻 Ghost Sniper — Ultra</h1>
-  <div class="sub">Pump.fun snipes + DEX Screener + CoinGecko + TA — you sign, not us.</div>
+  <h1>👻 Ghost Sniper</h1>
+  <div class="sub">Live Pump.fun feed → filter → snipe. You sign — no keys on server.</div>
 </header>
 
-<div class="wrap grid">
+<div class="wrap">
+  <!-- LEFT: Pump.fun & signals -->
   <section class="card">
-    <h2>Pump.fun Sniper</h2>
+    <h2>Pump.fun Live</h2>
+
     <div class="row">
-      <button id="openPhantom" class="btn" style="display:none">Open in Phantom (iPhone)</button>
-      <button id="connectPhantom" class="btn">Connect Phantom</button>
-      <span id="phantomAddr" class="muted mono"></span>
+      <button class="btn" id="openPhantom" style="display:none">Open in Phantom (iPhone)</button>
+      <button class="btn" id="connectPhantom">Connect Phantom</button>
+      <span id="phantomAddr" class="muted"></span>
     </div>
 
     <div class="row">
-      <label>Amount (SOL)<input id="amt" type="number" step="0.001" value="0.05"></label>
-      <label>Slip %<input id="slip" type="number" step="0.1" value="1"></label>
-      <label>Priority (SOL)<input id="fee" type="number" step="0.00001" value="0.00002"></label>
-      <select id="pool">
-        <option value="pump">pump</option>
-        <option value="raydium">raydium</option>
-      </select>
+      <label>Amount (SOL)<input id="amt" type="number" min="0" step="0.001" value="0.03"/></label>
+      <label>Slippage %<input id="slip" type="number" min="0" step="0.1" value="1"/></label>
+      <label>Priority SOL<input id="fee" type="number" min="0" step="0.00001" value="0.00002"/></label>
+      <select id="pool"><option value="pump">pump</option><option value="raydium">raydium</option></select>
     </div>
 
-    <div class="pad muted">New tokens (live):</div>
-    <table class="table">
-      <thead><tr><th>Time</th><th>Name</th><th>Mint</th><th>Actions</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
+    <div class="row">
+      <label>Min Liquidity $<input id="minLiq" type="number" value="5000"/></label>
+      <label>Min 5m Change %<input id="minChg" type="number" value="5"/></label>
+      <label>Buys>Sells (5m)<input id="minEdge" type="number" value="1"/></label>
+      <label class="muted">Auto-Snipe <input id="autoSnipe" type="checkbox"/></label>
+    </div>
+
+    <div class="pad muted">New tokens (latest first). Tap **Snipe** to build tx and sign in Phantom. **Exit** sells 100%.</div>
+    <table class="table"><thead><tr><th>Time</th><th>Name</th><th>Mint</th><th>Mkt</th><th>5m%</th><th>Liq$</th><th>Buys/Sells</th><th></th></tr></thead><tbody id="rows"></tbody></table>
   </section>
 
+  <!-- RIGHT: Tools -->
   <section class="card">
-    <h2>Intel + TA</h2>
-
-    <div class="card" style="margin-bottom:10px">
-      <h3>DEX Screener</h3>
-      <div class="pad">
-        <div class="half">
-          <input id="dxsQuery" placeholder="Search e.g. SOL/USDC or mint address" />
-          <button id="dxsBtn" class="btn">Search</button>
-        </div>
-        <pre id="dxsOut" class="chat"></pre>
-      </div>
+    <h2>Tools</h2>
+    <div class="row">
+      <button class="btn" id="refreshPrices">Refresh SOL/ETH</button>
+      <div id="prices" class="mono muted"></div>
     </div>
-
-    <div class="card" style="margin-bottom:10px">
-      <h3>CoinGecko Prices</h3>
-      <div class="pad">
-        <div class="half">
-          <input id="cgIds" value="solana,ethereum" />
-          <button id="cgBtn" class="btn">Fetch</button>
-        </div>
-        <pre id="cgOut" class="chat"></pre>
-      </div>
+    <div class="divider"></div>
+    <h3>Quick Dexscreener lookup</h3>
+    <div class="row">
+      <input id="dexQ" placeholder="e.g. SOL/USDC or token mint"/>
+      <button class="btn" id="dexBtn">Search</button>
     </div>
+    <pre id="dexOut" class="chat"></pre>
 
-    <div class="card">
-      <h3>TA (RSI/EMA/MACD)</h3>
-      <div class
+    <div class="divider"></div>
+    <h3>AI Chat</h3>
+    <div class="row">
+      <input id="chatIn" placeholder="Ask Ghost Sniper…"/>
+      <button class="btn" id="chatBtn">Send</button>
+    </div>
+    <pre id="chatOut" class="chat"></pre>
+  </section>
+</div>
+
+<script>
+const web3 = window.solanaWeb3;
+const $ = s => document.querySelector(s);
+const rows = $("#rows");
+let phantom, pubkey;
+
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent); }
+function maybeShowOpenInPhantom(){
+  const btn = $("#openPhantom");
+  const injected = window?.phantom?.solana || window?.solana;
+  if (!injected && isIOS()) {
+    btn.style.display = "inline-block";
+    btn.onclick = () => { window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`; };
+  }
+}
+maybeShowOpenInPhantom();
+
+async function connectPhantom(){
+  phantom = window?.phantom?.solana ?? window?.solana;
+  if (!phantom?.isPhantom) return alert("Phantom not detected. On iPhone, tap ‘Open in Phantom’ first.");
+  const r = await phantom.connect();
+  pubkey = r.publicKey?.toString();
+  $("#phantomAddr").textContent = pubkey || "";
+}
+$("#connectPhantom").onclick = connectPhantom;
+
+// ---------- Server signals (auto-snipe mode: client confirms) ----------
+const es = new EventSource("/api/sniper/events");
+es.onmessage = async (ev) => {
+  try {
+    const sig = JSON.parse(ev.data);
+    prependRow(sig, true);
+    // Client-side filter = same as UI thresholds:
+    const minLiq = Number($("#minLiq").value||0);
+    const minChg = Number($("#minChg").value||0);
+    const minEdge= Number($("#minEdge").value||0);
+    const edgeOk = (sig.buys5m - sig.sells5m) >= minEdge;
+    if ($("#autoSnipe").checked && sig.liquidityUsd>=minLiq && sig.change5m>=minChg && edgeOk) {
+      // auto-build & prompt sign (you still approve in Phantom)
+      await snipe(sig.mint);
+    }
+  } catch {}
+};
+
+// ---------- Table helpers ----------
+function prependRow(info, isSignal=false){
+  const tr = document.createElement("tr");
+  const t = new Date(info.t || Date.now()).toLocaleTimeString();
+  const m5 = info.change5m ?? 0;
+  const liq = Math.round(info.liquidityUsd ?? 0);
+  const url = info.pairUrl || "#";
+  tr.innerHTML = `
+    <td>${t}${isSignal? " <span class='ok'>●</span>":""}</td>
+    <td>${info.name || "New"}</td>
+    <td><a class="mono" href="${url}" target="_blank">${(info.mint||"").slice(0,6)}…${(info.mint||"").slice(-4)}</a></td>
+    <td>${url.includes("dexscreener")?"Dex":"?"}</td>
+    <td>${m5>=0? "<span class='ok'>":"<span class='bad'>"}${m5.toFixed(2)}%</span></td>
+    <td>$${liq.toLocaleString()}</td>
+    <td>${info.buys5m||0}/${info.sells5m||0}</td>
+    <td>
+      <button class="btn small" data-snipe="${info.mint}">Snipe</button>
+      <button class="btn small outline" data-exit="${info.mint}">Exit</button>
+    </td>
+  `;
+  rows.prepend(tr);
+  tr.querySelector("[data-snipe]")?.addEventListener("click", e => snipe(e.target.getAttribute("data-snipe")));
+  tr.querySelector("[data-exit]")?.addEventListener("click", e => exit(e.target.getAttribute("data-exit")));
+}
+
+// ---------- Build & sign ----------
+async function ensureWallet(){
+  if (!pubkey) await connectPhantom();
+  if (!pubkey) throw new Error("No Phantom wallet connected");
+  return pubkey;
+}
+
+async function signAndSend(base64){
+  const provider = window?.phantom?.solana ?? window?.solana;
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const tx = web3.VersionedTransaction.deserialize(bytes);
+  const { signature } = await provider.signAndSendTransaction(tx);
+  alert("Submitted: " + signature);
+}
+
+async function snipe(mint){
+  try {
+    const publicKey = await ensureWallet();
+    const body = {
+      publicKey, mint,
+      amount: Number($("#amt").value||0.03),
+      denominatedInSol: true,
+      slippage: Number($("#slip").value||1),
+      priorityFee: Number($("#fee").value||0.00002),
+      pool: $("#pool").value
+    };
+    const r = await fetch("/api/pump/snipe", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "snipe failed");
+    await signAndSend(j.tx);
+  } catch(e){ alert(e.message||e); }
+}
+
+async function exit(mint){
+  try {
+    const publicKey = await ensureWallet();
+    const body = {
+      publicKey, mint,
+      amount: "100%",
+      denominatedInSol: false,
+      slippage: Number($("#slip").value||1),
+      priorityFee: Number($("#fee").value||0.00002),
+      pool: $("#pool").value
+    };
+    const r = await fetch("/api/pump/exit", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "exit failed");
+    await signAndSend(j.tx);
+  } catch(e){ alert(e.message||e); }
+}
+
+// ---------- Dexscreener & CoinGecko quick tools ----------
+$("#dexBtn").onclick = async () => {
+  const q = $("#dexQ").value.trim();
+  const r = await fetch(`/api/dex/search?q=${encodeURIComponent(q)}`);
+  const j = await r.json();
+  $("#dexOut").textContent = JSON.stringify(j, null, 2);
+};
+
+$("#refreshPrices").onclick = async () => {
+  const r = await fetch("/api/market/simple?ids=solana,ethereum&vs=usd");
+  const j = await r.json();
+  $("#prices").textContent = `SOL $${j?.solana?.usd ?? "?"} | ETH $${j?.ethereum?.usd ?? "?"}`;
+};
+
+// ---------- Basic chat ----------
+$("#chatBtn").onclick = async () => {
+  const text = $("#chatIn").value.trim();
+  if (!text) return;
+  $("#chatOut").textContent = "…";
+  const r = await fetch("/api/chat", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ messages:[{ role:"user", content: text }] }) });
+  const j = await r.json();
+  $("#chatOut").textContent = j?.content || JSON.stringify(j);
+};
+</script>
+</body>
+</html>
