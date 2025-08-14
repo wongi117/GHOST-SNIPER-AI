@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Phantom Wallet Test</title>
+  <style>body{font-family:system-ui;padding:16px} code{background:#f2f4f8;padding:2px 6px;border-radius:6px}</style>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.2/lib/index.iife.min.js"></script>
+</head>
+<body>
+  <h2>Phantom Wallet Test</h2>
+  <p>UserAgent: <code id="ua"></code></p>
+  <p>Injected flags:</p>
+  <ul>
+    <li><code>window.solana</code> = <span id="hasSolana"></span></li>
+    <li><code>window.phantom?.solana</code> = <span id="hasPhantomSolana"></span></li>
+    <li><code>isPhantom</code> = <span id="isPhantom"></span></li>
+  </ul>
+  <button id="openPhantom" style="display:none">Open in Phantom (iPhone)</button>
+  <button id="connect">Connect Phantom</button>
+  <pre id="out" style="white-space:pre-wrap;background:#f7f9fc;border:1px solid #e5e9f0;padding:10px;border-radius:8px;"></pre>
+
+<script>
+  const $ = (id)=>document.getElementById(id);
+  $('ua').textContent = navigator.userAgent;
+
+  const injected = (window.phantom && window.phantom.solana) || window.solana || null;
+  $('hasSolana').textContent = !!window.solana;
+  $('hasPhantomSolana').textContent = !!(window.phantom && window.phantom.solana);
+  $('isPhantom').textContent = injected && injected.isPhantom ? 'true' : 'false';
+
+  // Helper deep-link for Safari
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (!injected && isIOS) {
+    const btn = $('openPhantom');
+    btn.style.display = 'inline-block';
+    btn.onclick = ()=>{
+      const url = encodeURIComponent(window.location.href);
+      window.location.href = `https://phantom.app/ul/browse/${url}`;
+    };
+  }
+
+  $('connect').onclick = async () => {
+    const provider = (window.phantom && window.phantom.solana) || window.solana;
+    if (!provider || !provider.isPhantom) {
+      $('out').textContent = 'Phantom not detected. On iPhone, open this page INSIDE Phantom using the globe icon, or tap "Open in Phantom".';
+      return;
+    }
+    try {
+      // Try silent connect first
+      await provider.connect({ onlyIfTrusted: true });
+    } catch {}
+    try {
+      const resp = await provider.connect(); // will show prompt if needed
+      $('out').textContent = 'Connected publicKey:\n' + resp.publicKey.toString();
+    } catch (e) {
+      $('out').textContent = 'Connect error:\n' + (e && e.message ? e.message : String(e));
+    }
+  };
+</script>
+</body>
+</html>
