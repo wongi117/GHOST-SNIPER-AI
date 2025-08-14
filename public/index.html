@@ -1,187 +1,288 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ghost Sniper AI</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>👻 Ghost Sniper — Live</title>
+<style>
+:root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#2ecc71;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial}
+header{display:flex;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid #1f2a40;position:sticky;top:0;background:#0b1220cc;backdrop-filter:blur(8px);z-index:10}
+h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px}
+.wrap{max-width:1250px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns: 1.1fr 1fr;gap:14px}
+@media (max-width:1020px){.wrap{display:block}}
+.card{background:var(--card);border:1px solid #1f2a40;border-radius:12px;overflow:hidden}
+.card h2{margin:0;padding:12px 14px;border-bottom:1px solid #1f2a40;font-size:16px}
+.section{padding:12px 14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,select,textarea{background:#0b1326;border:1px solid #1f2a40;border-radius:8px;color:#fff;padding:9px 10px;font:14px/1.2 inherit;width:100%}
+input[type="number"]{max-width:130px}
+.badge{display:inline-block;padding:3px 8px;border:1px solid #1f2a40;border-radius:999px;font-size:12px;color:var(--muted)}
+.btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;font-weight:600;color:#fff;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:#2166ff}
+.btn.ok{background:#2a3957}
+.btn.sell{background:#a03d3d}
+hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
+pre{white-space:pre-wrap;background:#081127;border:1px solid #1f2a40;padding:10px;border-radius:10px;max-height:36vh;overflow:auto}
+.kv{display:grid;grid-template-columns: 110px 1fr;gap:8px;align-items:center}
+.list{display:grid;gap:8px}
+.item{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px;border:1px solid #1f2a40;border-radius:10px;background:#0b1326}
+.item .meta{color:var(--muted);font-size:12px}
+a{color:#9cd1ff;text-decoration:none} a:hover{text-decoration:underline}
+.small{font-size:12px;color:var(--muted)}
+</style>
 
-  <style>
-    :root{ --bg:#0b1220; --card:#0f1a33; --muted:#9fb5d9; --ok:#7dffa7; }
-    *{ box-sizing:border-box }
-    body{ margin:0; background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif }
-    header{ display:flex; gap:12px; align-items:baseline; padding:18px 20px; border-bottom:1px solid #1f2a40 }
-    h1{ margin:0; font-size:22px }
-    .sub{ color:var(--muted); font-size:13px }
-    .wrap{ max-width:1200px; margin:18px auto; padding:0 16px }
-    @media (min-width:1000px){
-      .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px }
-    }
-    .card{ background:var(--card); border:1px solid #1f2a40; border-radius:10px; padding:16px; margin-bottom:16px }
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-    label{ font-size:13px; color:var(--muted) }
-    input, select{
-      background:#0b1326; border:1px solid #1f2a40; color:#fff;
-      padding:10px 12px; border-radius:8px; min-width:0;
-    }
-    input[readonly]{ opacity:.7 }
-    button{
-      appearance:none; border:none; border-radius:8px; padding:10px 14px; color:#fff; cursor:pointer;
-    }
-    button.pri{ background:#2166ff }
-    button.sec{ background:#2a3957 }
-    button:disabled{ opacity:.55; cursor:not-allowed }
-    .ok{ color:var(--ok) }
-    .muted{ color:var(--muted) }
-    pre{
-      background:#0a0f1d; border:1px solid #1f2a40; border-radius:8px;
-      padding:10px; margin:0; color:#9cd1ff; overflow:auto; white-space:pre-wrap;
-    }
-    .badge{ display:inline-block; background:#213a72; border:1px solid #2b4c93; padding:2px 8px; border-radius:999px; font-size:12px }
-    hr{ border:none; border-top:1px solid #1f2a40; margin:14px 0 }
-    a{ color:#9cd1ff; text-decoration:none } a:hover{ text-decoration:underline }
-  </style>
+<!-- Solana web3 + phantom types -->
+<script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 </head>
-
 <body>
-  <header>
-    <h1>👻 Ghost Sniper</h1>
-    <div class="sub">Connect → intel → quote → buy/sell. No keys on server.</div>
-  </header>
+<header>
+  <h1>👻 Ghost Sniper</h1>
+  <div class="sub">Connect → pick target → quote → sign → swap. No keys on server.</div>
+</header>
 
-  <div class="wrap">
+<div class="wrap">
+  <!-- LEFT: market intel + feed -->
+  <section class="card">
+    <h2>📡 Market Intel</h2>
+    <div class="section">
+      <div class="row">
+        <span class="badge" id="solp">SOL $–</span>
+        <span class="badge">Jupiter v6</span>
+        <span class="badge">DexScreener</span>
+      </div>
 
-    <!-- ───────────────────────── LEFT/RIGHT GRID ───────────────────────── -->
-    <div class="grid">
+      <hr/>
 
-      <!-- LEFT COLUMN -->
-      <section class="card">
-        <h2>🧠 Train from a video link</h2>
-        <div class="row">
-          <input id="learnUrl" placeholder="Paste YouTube or TikTok URL" style="flex:1" />
-          <button id="ingestBtn" class="pri">Analyze</button>
-        </div>
-        <hr/>
-        <pre id="learnOut" class="muted" style="max-height:280px;"></pre>
-        <div class="muted" style="margin-top:8px">
-          Tip: On iPhone, you can paste shorts/reels URLs too. The server extracts captions/transcripts, summarizes,
-          and caches them so you can ask the AI about the video.
-        </div>
-      </section>
-
-      <!-- RIGHT COLUMN (placeholders you can fill as you go) -->
-      <section class="card">
-        <h2>⚙️ Wallet & Quick Actions</h2>
-        <div class="row">
-          <button class="sec" id="openPhantom">Open Phantom (iOS helper)</button>
-          <button class="pri" id="connectPhantom">Connect Phantom</button>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <label>Address</label>
-          <input id="phantomAddr" readonly style="flex:1" placeholder="Not connected" />
-        </div>
-        <hr/>
-        <div class="row">
-          <label>Amount (SOL)</label><input id="amt" type="number" step="0.0001" value="0.01" style="width:120px" />
-          <label>Slippage %</label><input id="slip" type="number" step="0.1" value="1" style="width:100px" />
-          <label>Priority (SOL)</label><input id="fee" type="number" step="0.0001" value="0.0005" style="width:120px" />
-        </div>
-        <div class="row" style="margin-top:10px">
-          <label>Pool</label>
-          <select id="pool">
-            <option value="pumpfun">Pump.fun</option>
-            <option value="raydium">Raydium</option>
-            <option value="meteora">Meteora</option>
-          </select>
-          <button class="pri" id="snipeBtn">Snipe</button>
-          <button class="sec" id="sellBtn">Sell</button>
-        </div>
-        <pre id="txOut" class="muted" style="margin-top:10px;max-height:220px;"></pre>
-      </section>
-
+      <div class="row">
+        <input id="ingestUrl" placeholder="Paste YouTube / TikTok / article URL for AI summary"/>
+        <button class="btn ok" id="btnIngest">Summarize</button>
+      </div>
+      <pre id="summary" class="small">Tip: paste a link. The server will fetch text and the AI will summarize for your playbook.</pre>
     </div>
 
-    <!-- Live console / logs -->
-    <section class="card">
-      <h2>📜 Console</h2>
-      <pre id="log" style="max-height:260px;"></pre>
-    </section>
+    <h2>⚡ New Pairs (DexScreener · Solana)</h2>
+    <div class="section">
+      <div class="row">
+        <input id="filter" placeholder="filter symbol / pump / raydium…"/>
+        <button class="btn ok" id="btnReload">Reload</button>
+      </div>
+      <div id="feed" class="list" style="margin-top:10px"></div>
+      <div class="small" style="margin-top:10px">Source: DexScreener latest SOL pairs. Use “Snipe” to target the base token (SOL→base).</div>
+    </div>
+  </section>
 
-  </div>
+  <!-- RIGHT: wallet + sniper console -->
+  <section class="card">
+    <h2>🧰 Wallet & Sniper</h2>
+    <div class="section">
+      <div class="row">
+        <button class="btn ok" id="openPhantom" style="display:none">Open Phantom (iOS)</button>
+        <button class="btn primary" id="connectPhantom">Connect Phantom</button>
+      </div>
 
-  <!-- Minimal Phantom helper (optional to keep) -->
-  <script defer src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+      <div class="kv" style="margin-top:8px">
+        <div>Address</div>
+        <input id="addr" readonly placeholder="—"/>
+        <div>Amount (SOL)</div>
+        <input id="amt" type="number" step="0.001" value="0.02"/>
+        <div>Slippage (bps)</div>
+        <input id="slip" type="number" step="1" value="100"/>
+        <div>Priority (SOL)</div>
+        <input id="prio" type="number" step="0.000001" value="0.0005"/>
+      </div>
 
-  <!-- Page scripts -->
-  <script>
-    // ───────── Helper: append to console
-    const $ = (id)=>document.getElementById(id);
-    function logLine(msg){ const el=$('log'); el.textContent += (msg + '\\n'); el.scrollTop = el.scrollHeight; }
+      <hr/>
 
-    // ───────── Train from link (YouTube/TikTok → /api/ingest)
-    async function ingestFromLink() {
-      const btn = $('ingestBtn');
-      const url = $('learnUrl').value.trim();
-      const out = $('learnOut');
-      if (!url) { out.textContent = "Paste a YouTube or TikTok link."; return; }
-      btn.disabled = true; out.textContent = "Fetching & analyzing…";
-      try {
-        const r = await fetch('/api/ingest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        const data = await r.json();
-        if (!data.ok) {
-          out.textContent = "Error: " + (data.error || "unknown");
-          logLine("Ingest error: " + JSON.stringify(data));
-        } else {
-          out.textContent =
-            `Provider: ${data.provider}\\nTranscript chars: ${data.chars}\\n\\n` +
-            data.analysis;
-          logLine("Ingest ok (" + data.provider + "): " + data.chars + " chars");
-        }
-      } catch (e) {
-        out.textContent = "Error: " + e;
-        logLine("Ingest exception: " + e);
-      } finally {
-        btn.disabled = false;
-      }
+      <div class="kv">
+        <div>Input</div>
+        <select id="inMint">
+          <option value="So11111111111111111111111111111111111111112">SOL</option>
+          <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
+        </select>
+        <div>Output</div>
+        <input id="outMint" placeholder="Target token mint (from feed or paste)"/>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn ok" id="btnQuote">Get Quote</button>
+        <button class="btn primary" id="btnSwap" disabled>Sign & Swap</button>
+        <button class="btn sell" id="btnSell" disabled>Quick Sell (out→in)</button>
+      </div>
+
+      <hr/>
+      <div class="row">
+        <label><input type="checkbox" id="takeProfit"> TP at +12%</label>
+        <label><input type="checkbox" id="stopLoss"> SL at -8%</label>
+        <label><input type="checkbox" id="autoSell"> Auto-sell on thin liq</label>
+      </div>
+
+      <hr/>
+      <pre id="log">Ready.\n</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+const log = (...a)=>{const el=document.getElementById('log'); el.textContent += a.join(' ') + '\\n'; el.scrollTop=el.scrollHeight}
+const $ = id => document.getElementById(id);
+const SOL_MINT = "So11111111111111111111111111111111111111112"; // wSOL
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+let phantom, pubkey, lastQuote, lastDirection = "buy"; // "buy" means in→out
+
+// ---------- Helpers ----------
+const lamports = sol => Math.round(Number(sol) * 1e9);
+const dec = (n,d=6)=> Number(n ?? 0).toFixed(d);
+
+// ---------- Phantom detect (mobile helper button) ----------
+(function(){
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (isIOS) $('openPhantom').style.display = 'inline-block';
+  $('openPhantom').onclick = () => window.location.href = "https://phantom.app/ul/browse/" + encodeURIComponent(location.href);
+})();
+
+// ---------- Connect ----------
+$('connectPhantom').onclick = async ()=>{
+  try{
+    if (!window.solana?.isPhantom) {
+      log("Phantom not detected. Install Phantom and re-open.");
+      return;
     }
-    $('ingestBtn').addEventListener('click', ingestFromLink);
+    phantom = window.solana;
+    const r = await phantom.connect();
+    pubkey = r.publicKey.toString();
+    $('addr').value = pubkey;
+    log("Phantom connected:", pubkey);
+  }catch(e){ log("connect_error:", e.message||e) }
+};
 
-    // ───────── Phantom quick-connect helpers (non-blocking; optional)
-    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    if (isIOS) $('openPhantom').style.display = 'inline-block';
-    $('openPhantom').onclick = () => {
-      // Deep link opens Phantom app where the dApp browser can see window.solana
-      location.href = 'https://phantom.app/ul/browse/ghost-sniper-ai-production.up.railway.app';
-    };
+// ---------- Prices ----------
+async function refreshSolPrice(){
+  try{
+    const r = await fetch('/api/price/sol'); const j = await r.json();
+    if (j?.usd) $('solp').textContent = `SOL $${j.usd}`;
+  }catch{}
+}
+refreshSolPrice(); setInterval(refreshSolPrice, 30000);
 
-    $('connectPhantom').onclick = async () => {
-      try {
-        if (!(window.solana && window.solana.isPhantom)) {
-          logLine('Phantom not injected. On iPhone, tap "Open Phantom" and use its browser.');
-          alert('Phantom not detected. If you are on iPhone, open this site inside the Phantom app.');
-          return;
-        }
-        const resp = await window.solana.connect();
-        $('phantomAddr').value = resp.publicKey.toString();
-        logLine('Phantom connected: ' + resp.publicKey.toString());
-      } catch (e) {
-        logLine('Phantom connect error: ' + e);
-        alert('Connect error: ' + e.message);
-      }
-    };
+// ---------- AI ingest ----------
+$('btnIngest').onclick = async ()=>{
+  const url = $('ingestUrl').value.trim();
+  if (!url) return;
+  $('summary').textContent = "Summarizing…";
+  try{
+    const r = await fetch('/api/ingest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url})});
+    const j = await r.json();
+    $('summary').textContent = j.summary || JSON.stringify(j,null,2);
+  }catch(e){ $('summary').textContent = "Ingest failed: "+(e.message||e)}
+};
 
-    // ───────── Sniping buttons (wire these to your backend routes when ready)
-    $('snipeBtn').onclick = async () => {
-      $('txOut').textContent = 'Pretend snipe… (wire to /api/snipe when ready)';
-      logLine('Snipe clicked');
-    };
-    $('sellBtn').onclick = async () => {
-      $('txOut').textContent = 'Pretend sell… (wire to /api/sell when ready)';
-      logLine('Sell clicked');
-    };
-  </script>
+// ---------- Feed ----------
+async function loadFeed(){
+  $('feed').innerHTML = '<div class="small">Loading…</div>';
+  try{
+    const r = await fetch('/api/dexscreener/new'); const j = await r.json();
+    const q = $('filter').value.trim().toLowerCase();
+    const items = (j.items||[]).filter(x=>{
+      const s = `${x.baseSymbol} ${x.quoteSymbol} ${x.dexId} ${x.url} ${(x.flags||[]).join(' ')}`.toLowerCase();
+      return q ? s.includes(q) : true;
+    });
+
+    $('feed').innerHTML = '';
+    items.forEach(p=>{
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `
+        <div>
+          <div><b>${p.baseSymbol || '???'}</b> / ${p.quoteSymbol} · ${p.dexId} · <a href="${p.url}" target="_blank">chart</a></div>
+          <div class="meta">liq $${dec(p.liquidityUsd||0,0)} · price $${dec(p.priceUsd||0,6)} · fdv $${dec(p.fdv||0,0)}</div>
+          <div class="meta small">${p.baseAddress}</div>
+        </div>
+        <div class="row">
+          <button class="btn ok">Quote</button>
+          <button class="btn primary">Snipe</button>
+        </div>`;
+      const [btnQ, btnS] = row.querySelectorAll('button');
+      btnQ.onclick = ()=> quote(SOL_MINT, p.baseAddress);
+      btnS.onclick = ()=> snipe(SOL_MINT, p.baseAddress);
+      $('feed').appendChild(row);
+    });
+  }catch(e){
+    $('feed').innerHTML = `<div class="small">Feed error: ${e.message||e}</div>`;
+  }
+}
+$('btnReload').onclick = loadFeed; loadFeed(); setInterval(loadFeed, 20000);
+
+// ---------- Quote & Swap via Jupiter ----------
+async function quote(inputMint, outputMint){
+  try{
+    if (!pubkey) throw new Error("Connect wallet first");
+    if (!outputMint) outputMint = $('outMint').value.trim();
+    if (!outputMint) throw new Error("Set output mint (target token)");
+    $('outMint').value = outputMint;
+
+    const amountLamports = inputMint===SOL_MINT
+      ? lamports($('amt').value || "0.01")
+      : Math.round(Number($('amt').value||"1") * 1e6); // crude for USDC
+
+    const qurl = new URL('/api/jup/quote', location.origin);
+    qurl.searchParams.set('inputMint', inputMint);
+    qurl.searchParams.set('outputMint', outputMint);
+    qurl.searchParams.set('amount', amountLamports);
+    qurl.searchParams.set('slippageBps', $('slip').value || "100");
+
+    log("Quoting…");
+    const r = await fetch(qurl); const j = await r.json();
+    if (!j?.outAmount) { log("Quote failed:", JSON.stringify(j)); return; }
+
+    lastQuote = j; lastDirection = "buy";
+    $('btnSwap').disabled = false; $('btnSell').disabled = false;
+    log(`Quote ok: in ${j.inAmount} → out ${j.outAmount} (route ${j.routePlan?.length||1} hops)`);
+  }catch(e){ log("quote_error:", e.message||e) }
+}
+
+$('btnQuote').onclick = ()=> quote($('inMint').value, $('outMint').value);
+
+// BUY (in→out)
+$('btnSwap').onclick = async ()=>{
+  try{
+    if (!pubkey) throw new Error("Connect wallet first");
+    if (!lastQuote) throw new Error("Get a quote first");
+    log("Building swap tx…");
+    const r = await fetch('/api/jup/swap',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body: JSON.stringify({ quoteResponse: lastQuote, userPublicKey: pubkey, wrapAndUnwrapSol: true })
+    });
+    const j = await r.json();
+    if (!j.swapTransaction) { log("swap_build_error:", JSON.stringify(j)); return; }
+
+    const txBytes = Uint8Array.from(atob(j.swapTransaction), c => c.charCodeAt(0));
+    const { signature } = await window.solana.signAndSendTransaction({ serializedTransaction: txBytes });
+    log("Submitted:", signature);
+  }catch(e){ log("swap_error:", e.message||e) }
+};
+
+// SELL (reverse: out→in using lastQuote reversed)
+$('btnSell').onclick = async ()=>{
+  try{
+    if (!pubkey) throw new Error("Connect wallet first");
+    // minimal reverse: swap outputMint back to inputMint using same amount setting
+    const inputMint  = $('outMint').value.trim();
+    const outputMint = $('inMint').value;
+    await quote(inputMint, outputMint);
+    $('btnSwap').click();
+  }catch(e){ log("sell_error:", e.message||e) }
+};
+
+// Quick “snipe” helper used by feed
+async function snipe(inMint, outMint){
+  $('inMint').value = inMint; $('outMint').value = outMint;
+  await quote(inMint, outMint);
+  $('btnSwap').click();
+}
+</script>
 </body>
 </html>
