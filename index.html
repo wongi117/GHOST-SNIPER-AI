@@ -1,24 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>👻 Ghost Sniper</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <header>
-    <h1>👻 Ghost Sniper</h1>
-    <div class="sub">Live Pump.fun feed → fast trades</div>
-  </header>
+<script>
+async function snipeNow({ inputMint, outputMint, amountLamports, slippageBps=50 }) {
+  // 1) Quote
+  const qUrl = new URL('/api/jup/quote', location.origin);
+  qUrl.searchParams.set('inputMint', inputMint);
+  qUrl.searchParams.set('outputMint', outputMint);
+  qUrl.searchParams.set('amount', String(amountLamports));
+  qUrl.searchParams.set('slippageBps', String(slippageBps));
+  const quote = await fetch(qUrl).then(r=>r.json());
+  if (!quote?.data?.routePlan) throw new Error('No route found');
 
-  <main>
-    <section>
-      <button id="connectPhantom">Connect Phantom</button>
-      <div id="phantomAddr">Not connected</div>
-    </section>
-  </main>
+  // 2) Build swap tx on server
+  const pubkey = window.solana?.publicKey?.toString();
+  if (!pubkey) throw new Error('Phantom not connected');
 
-  <script src="app.js"></script>
-</body>
-</html>
+  const swapResp = await fetch('/api/jup/swap', {
+    method: 'POST',
+    headers: {'content-type':'application/json'},
+    body: JSON.stringify({
+      userPublicKey: pubkey,
+      wrapAndUnwrapSol: true,
+      quoteResponse: quote.data
+    })
+  }).then(r=>r.json());
+
+  const txBase64 = swapResp?.swapTransaction;
+  if (!txBase64) throw new Error('Bad swap response');
+
+  // 3) Sign & send with Phantom
+  const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+  const signed = await window.solana.signAndSendTransaction({
+    message: txBytes, // Phantom expects serialized message/tx depending on mode
+  });
+
+  // 4) Done – you get a signature
+  const sig = signed?.signature || signed;
+  console.log('sent:', sig);
+  return sig;
+}
+</script>
