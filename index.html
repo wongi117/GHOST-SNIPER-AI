@@ -1,216 +1,198 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>👻 Ghost Sniper — Fast Pump.fun</title>
-<link rel="stylesheet" href="/ghost.css"/>
-<script src="https://unpkg.com/@solana/web3.js@1.95.2/lib/index.iife.min.js"></script>
-<style>.ok{color:#41d392}.bad{color:#ff6a6a}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>👻 Ghost Sniper — Wallet Connect</title>
+
+  <!-- Optional: if you already have /public/ghost.css, keep it.
+       Otherwise the inline styles below are enough. -->
+  <style>
+    :root { --bg:#0b1220; --card:#0f1a33; --muted:#9fb5d9; --txt:#fff; --accent:#7ef29a; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    header { display:flex; gap:12px; align-items:center; padding:16px 20px; border-bottom:1px solid #1f2a40; }
+    h1 { margin:0; font-size:20px; }
+    .sub { color:var(--muted); font-size:13px; }
+    .wrap { max-width:1100px; margin:18px auto; padding:0 16px; display:grid; gap:16px; grid-template-columns: 1fr; }
+    @media (min-width: 960px) { .wrap { grid-template-columns: 1fr 1fr; } }
+    .card { background:var(--card); border:1px solid #1a2949; border-radius:12px; padding:16px; }
+    .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .col { display:flex; flex-direction:column; gap:8px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .badge { display:inline-block; background:#1b2a4a; border:1px solid #2a3b60; padding:4px 8px; border-radius:999px; font-size:12px; color:#a9c0e6; }
+    button { appearance:none; border:none; background:#213bff; color:#fff; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+    button.sec { background:#2a3957; }
+    button.ghost { background:transparent; border:1px solid #2a3b60; color:#cfe0ff; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    pre { margin:0; padding:10px; background:#0c1529; border:1px solid #1a2949; border-radius:8px; overflow:auto; color:#bfe2ff; }
+    a { color:#9cd1ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+
+  <!-- Solana web3 for convenience (Phantom not required, but nice to have) -->
+  <script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 </head>
 <body>
-<header>
-  <h1>👻 Ghost Sniper</h1>
-  <div class="sub">Live Pump.fun feed → filter → snipe. You sign — no keys on server.</div>
-</header>
+  <header>
+    <h1>👻 Ghost Sniper</h1>
+    <span class="badge">You sign — no keys on server</span>
+  </header>
 
-<div class="wrap">
-  <!-- LEFT: Pump.fun & signals -->
-  <section class="card">
-    <h2>Pump.fun Live</h2>
+  <div class="wrap">
 
-    <div class="row">
-      <button class="btn" id="openPhantom" style="display:none">Open in Phantom (iPhone)</button>
-      <button class="btn" id="connectPhantom">Connect Phantom</button>
-      <span id="phantomAddr" class="muted"></span>
-    </div>
+    <!-- Phantom / Solana -->
+    <section class="card">
+      <h2 style="margin:0 0 6px">Solana — Phantom</h2>
+      <p class="muted">On iPhone, wallets inject only inside the Phantom app. Use the button below to open this site in Phantom.</p>
 
-    <div class="row">
-      <label>Amount (SOL)<input id="amt" type="number" min="0" step="0.001" value="0.03"/></label>
-      <label>Slippage %<input id="slip" type="number" min="0" step="0.1" value="1"/></label>
-      <label>Priority SOL<input id="fee" type="number" min="0" step="0.00001" value="0.00002"/></label>
-      <select id="pool"><option value="pump">pump</option><option value="raydium">raydium</option></select>
-    </div>
+      <div class="row" style="margin:10px 0 6px">
+        <button id="phantomConnect">Connect Phantom</button>
+        <button id="openInPhantom" class="sec" style="display:none">Open in Phantom (iPhone)</button>
+        <button id="phantomSign" class="ghost" disabled>Sign Test Message</button>
+      </div>
 
-    <div class="row">
-      <label>Min Liquidity $<input id="minLiq" type="number" value="5000"/></label>
-      <label>Min 5m Change %<input id="minChg" type="number" value="5"/></label>
-      <label>Buys>Sells (5m)<input id="minEdge" type="number" value="1"/></label>
-      <label class="muted">Auto-Snipe <input id="autoSnipe" type="checkbox"/></label>
-    </div>
+      <div class="col">
+        <div class="muted">Address</div>
+        <pre id="phantomAddr">—</pre>
+        <div class="muted">Last Result</div>
+        <pre id="phantomOut">—</pre>
+      </div>
+    </section>
 
-    <div class="pad muted">New tokens (latest first). Tap **Snipe** to build tx and sign in Phantom. **Exit** sells 100%.</div>
-    <table class="table"><thead><tr><th>Time</th><th>Name</th><th>Mint</th><th>Mkt</th><th>5m%</th><th>Liq$</th><th>Buys/Sells</th><th></th></tr></thead><tbody id="rows"></tbody></table>
-  </section>
+    <!-- MetaMask / EVM -->
+    <section class="card">
+      <h2 style="margin:0 0 6px">Ethereum — MetaMask</h2>
+      <p class="muted">Works in any Chromium browser and in MetaMask mobile in-app browser.</p>
 
-  <!-- RIGHT: Tools -->
-  <section class="card">
-    <h2>Tools</h2>
-    <div class="row">
-      <button class="btn" id="refreshPrices">Refresh SOL/ETH</button>
-      <div id="prices" class="mono muted"></div>
-    </div>
-    <div class="divider"></div>
-    <h3>Quick Dexscreener lookup</h3>
-    <div class="row">
-      <input id="dexQ" placeholder="e.g. SOL/USDC or token mint"/>
-      <button class="btn" id="dexBtn">Search</button>
-    </div>
-    <pre id="dexOut" class="chat"></pre>
+      <div class="row" style="margin:10px 0 6px">
+        <button id="mmConnect">Connect MetaMask</button>
+        <button id="mmSign" class="ghost" disabled>Sign Test Message</button>
+      </div>
 
-    <div class="divider"></div>
-    <h3>AI Chat</h3>
-    <div class="row">
-      <input id="chatIn" placeholder="Ask Ghost Sniper…"/>
-      <button class="btn" id="chatBtn">Send</button>
-    </div>
-    <pre id="chatOut" class="chat"></pre>
-  </section>
-</div>
+      <div class="col">
+        <div class="muted">Address</div>
+        <pre id="mmAddr">—</pre>
+        <div class="muted">Last Result</div>
+        <pre id="mmOut">—</pre>
+      </div>
+    </section>
 
-<script>
-const web3 = window.solanaWeb3;
-const $ = s => document.querySelector(s);
-const rows = $("#rows");
-let phantom, pubkey;
+    <!-- Links / Tools -->
+    <section class="card">
+      <h2 style="margin:0 0 6px">Tools</h2>
+      <div class="col">
+        <a href="/wallet-test" target="_blank">🔍 Open Wallet Test page</a>
+        <a href="/health" target="_blank">💓 /health</a>
+        <a href="https://phantom.app/ul" target="_blank">📱 Phantom Universal Links (docs)</a>
+      </div>
+    </section>
 
-function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent); }
-function maybeShowOpenInPhantom(){
-  const btn = $("#openPhantom");
-  const injected = window?.phantom?.solana || window?.solana;
-  if (!injected && isIOS()) {
-    btn.style.display = "inline-block";
-    btn.onclick = () => { window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`; };
-  }
-}
-maybeShowOpenInPhantom();
+  </div>
 
-async function connectPhantom(){
-  phantom = window?.phantom?.solana ?? window?.solana;
-  if (!phantom?.isPhantom) return alert("Phantom not detected. On iPhone, tap ‘Open in Phantom’ first.");
-  const r = await phantom.connect();
-  pubkey = r.publicKey?.toString();
-  $("#phantomAddr").textContent = pubkey || "";
-}
-$("#connectPhantom").onclick = connectPhantom;
+  <script>
+    // ------- helpers
+    const $ = (id) => document.getElementById(id);
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-// ---------- Server signals (auto-snipe mode: client confirms) ----------
-const es = new EventSource("/api/sniper/events");
-es.onmessage = async (ev) => {
-  try {
-    const sig = JSON.parse(ev.data);
-    prependRow(sig, true);
-    // Client-side filter = same as UI thresholds:
-    const minLiq = Number($("#minLiq").value||0);
-    const minChg = Number($("#minChg").value||0);
-    const minEdge= Number($("#minEdge").value||0);
-    const edgeOk = (sig.buys5m - sig.sells5m) >= minEdge;
-    if ($("#autoSnipe").checked && sig.liquidityUsd>=minLiq && sig.change5m>=minChg && edgeOk) {
-      // auto-build & prompt sign (you still approve in Phantom)
-      await snipe(sig.mint);
-    }
-  } catch {}
-};
+    // ------- Phantom (Solana)
+    (function setupPhantom(){
+      const btnConnect = $('phantomConnect');
+      const btnOpen = $('openInPhantom');
+      const btnSign = $('phantomSign');
+      const addrEl = $('phantomAddr');
+      const outEl = $('phantomOut');
 
-// ---------- Table helpers ----------
-function prependRow(info, isSignal=false){
-  const tr = document.createElement("tr");
-  const t = new Date(info.t || Date.now()).toLocaleTimeString();
-  const m5 = info.change5m ?? 0;
-  const liq = Math.round(info.liquidityUsd ?? 0);
-  const url = info.pairUrl || "#";
-  tr.innerHTML = `
-    <td>${t}${isSignal? " <span class='ok'>●</span>":""}</td>
-    <td>${info.name || "New"}</td>
-    <td><a class="mono" href="${url}" target="_blank">${(info.mint||"").slice(0,6)}…${(info.mint||"").slice(-4)}</a></td>
-    <td>${url.includes("dexscreener")?"Dex":"?"}</td>
-    <td>${m5>=0? "<span class='ok'>":"<span class='bad'>"}${m5.toFixed(2)}%</span></td>
-    <td>$${liq.toLocaleString()}</td>
-    <td>${info.buys5m||0}/${info.sells5m||0}</td>
-    <td>
-      <button class="btn small" data-snipe="${info.mint}">Snipe</button>
-      <button class="btn small outline" data-exit="${info.mint}">Exit</button>
-    </td>
-  `;
-  rows.prepend(tr);
-  tr.querySelector("[data-snipe]")?.addEventListener("click", e => snipe(e.target.getAttribute("data-snipe")));
-  tr.querySelector("[data-exit]")?.addEventListener("click", e => exit(e.target.getAttribute("data-exit")));
-}
+      const injected = !!(window.phantom && window.phantom.solana);
+      if (!injected && isIOS) {
+        // Show "Open in Phantom" for Safari on iOS
+        btnOpen.style.display = 'inline-block';
+        btnOpen.onclick = () => {
+          const here = window.location.href;
+          // Open current URL inside Phantom app
+          window.location.href = 'https://phantom.app/ul/browse/' + encodeURIComponent(here);
+        };
+      }
 
-// ---------- Build & sign ----------
-async function ensureWallet(){
-  if (!pubkey) await connectPhantom();
-  if (!pubkey) throw new Error("No Phantom wallet connected");
-  return pubkey;
-}
+      btnConnect.onclick = async () => {
+        try {
+          if (!(window.phantom && window.phantom.solana)) {
+            outEl.textContent = 'Phantom not injected. On iPhone, tap "Open in Phantom". On desktop, install Phantom.';
+            return;
+          }
+          const provider = window.phantom.solana;
+          const resp = await provider.connect({ onlyIfTrusted: false });
+          const pubkey = resp.publicKey?.toString?.() || '(no key)';
+          addrEl.textContent = pubkey;
+          btnSign.disabled = false;
+          outEl.textContent = 'Connected ✅';
+        } catch (e) {
+          outEl.textContent = 'Connect error: ' + String(e?.message || e);
+        }
+      };
 
-async function signAndSend(base64){
-  const provider = window?.phantom?.solana ?? window?.solana;
-  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-  const tx = web3.VersionedTransaction.deserialize(bytes);
-  const { signature } = await provider.signAndSendTransaction(tx);
-  alert("Submitted: " + signature);
-}
+      btnSign.onclick = async () => {
+        try {
+          const provider = window.phantom?.solana;
+          if (!provider?.isPhantom) throw new Error('Phantom not available');
+          const msg = new TextEncoder().encode('Ghost Sniper test ' + new Date().toISOString());
+          const sig = await provider.signMessage(msg, 'utf8');
+          outEl.textContent = 'Signature (base58): ' + (sig?.signature ? toBase58(sig.signature) : JSON.stringify(sig));
+        } catch (e) {
+          outEl.textContent = 'Sign error: ' + String(e?.message || e);
+        }
+      };
 
-async function snipe(mint){
-  try {
-    const publicKey = await ensureWallet();
-    const body = {
-      publicKey, mint,
-      amount: Number($("#amt").value||0.03),
-      denominatedInSol: true,
-      slippage: Number($("#slip").value||1),
-      priorityFee: Number($("#fee").value||0.00002),
-      pool: $("#pool").value
-    };
-    const r = await fetch("/api/pump/snipe", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "snipe failed");
-    await signAndSend(j.tx);
-  } catch(e){ alert(e.message||e); }
-}
+      // base58 encoder (tiny)
+      const toBase58 = (bytes) => {
+        const ALPH='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        let x = BigInt('0x' + [...bytes].map(b=>b.toString(16).padStart(2,'0')).join(''));
+        let out='';
+        while (x>0n){ out=ALPH[Number(x%58n)]+out; x/=58n; }
+        for (const b of bytes) { if (b===0) out='1'+out; else break; }
+        return out || '1';
+      };
+    })();
 
-async function exit(mint){
-  try {
-    const publicKey = await ensureWallet();
-    const body = {
-      publicKey, mint,
-      amount: "100%",
-      denominatedInSol: false,
-      slippage: Number($("#slip").value||1),
-      priorityFee: Number($("#fee").value||0.00002),
-      pool: $("#pool").value
-    };
-    const r = await fetch("/api/pump/exit", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "exit failed");
-    await signAndSend(j.tx);
-  } catch(e){ alert(e.message||e); }
-}
+    // ------- MetaMask (EVM)
+    (function setupMetaMask(){
+      const btnConnect = $('mmConnect');
+      const btnSign = $('mmSign');
+      const addrEl = $('mmAddr');
+      const outEl = $('mmOut');
 
-// ---------- Dexscreener & CoinGecko quick tools ----------
-$("#dexBtn").onclick = async () => {
-  const q = $("#dexQ").value.trim();
-  const r = await fetch(`/api/dex/search?q=${encodeURIComponent(q)}`);
-  const j = await r.json();
-  $("#dexOut").textContent = JSON.stringify(j, null, 2);
-};
+      btnConnect.onclick = async () => {
+        try {
+          if (!window.ethereum) {
+            outEl.textContent = 'MetaMask not found. Install MetaMask or open this site inside the MetaMask app browser.';
+            return;
+          }
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const addr = accounts?.[0] || '(no account)';
+          addrEl.textContent = addr;
+          btnSign.disabled = false;
+          outEl.textContent = 'Connected ✅';
+        } catch (e) {
+          outEl.textContent = 'Connect error: ' + String(e?.message || e);
+        }
+      };
 
-$("#refreshPrices").onclick = async () => {
-  const r = await fetch("/api/market/simple?ids=solana,ethereum&vs=usd");
-  const j = await r.json();
-  $("#prices").textContent = `SOL $${j?.solana?.usd ?? "?"} | ETH $${j?.ethereum?.usd ?? "?"}`;
-};
-
-// ---------- Basic chat ----------
-$("#chatBtn").onclick = async () => {
-  const text = $("#chatIn").value.trim();
-  if (!text) return;
-  $("#chatOut").textContent = "…";
-  const r = await fetch("/api/chat", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ messages:[{ role:"user", content: text }] }) });
-  const j = await r.json();
-  $("#chatOut").textContent = j?.content || JSON.stringify(j);
-};
-</script>
+      btnSign.onclick = async () => {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const from = accounts[0];
+          const msg = 'Ghost Sniper test ' + new Date().toISOString();
+          // personal_sign expects hex data OR a UTF-8 string (MM converts)
+          const sig = await window.ethereum.request({
+            method: 'personal_sign',
+            params: [msg, from]
+          });
+          outEl.textContent = 'Signature: ' + sig;
+        } catch (e) {
+          outEl.textContent = 'Sign error: ' + String(e?.message || e);
+        }
+      };
+    })();
+  </script>
 </body>
 </html>
