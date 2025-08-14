@@ -1,164 +1,133 @@
-// server.js — Ghost Sniper AI (YouTube/TikTok ingest + summary)
+// server.js — Ghost Sniper AI backend (Node 22 ESM)
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import OpenAI from "openai";
-import ytdl from "ytdl-core";
-import { YoutubeTranscript } from "youtube-transcript";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ---- static: serve /public if present, otherwise 404 hint
+const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : __dirname;
+
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
-
-// serve /public (needs /public/index.html)
-const PUBLIC_DIR = path.join(__dirname, "public");
-if (fs.existsSync(PUBLIC_DIR)) app.use(express.static(PUBLIC_DIR));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.static(PUBLIC_DIR));
 
 const PORT = process.env.PORT || 3000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const client = new OpenAI({ apiKey: OPENAI_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const client = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
-// ---- helpers ----
-const TMP_DIR = "/tmp";
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Health
+app.get("/health", (_req, res) =>
+  res.json({ ok: true, service: "ghost-sniper", ts: Date.now() })
+);
 
-function isYouTube(url) {
-  return /youtu\.?be/.test(url);
-}
-function isTikTok(url) {
-  return /tiktok\.com/.test(url);
-}
-function youtubeId(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
-    return u.searchParams.get("v");
-  } catch {
-    return null;
-  }
-}
-async function saveStreamToFile(stream, filePath) {
-  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filePath);
-    stream.pipe(file);
-    file.on("finish", () => file.close(resolve));
-    file.on("error", reject);
-    stream.on("error", reject);
-  });
-}
-
-// ---- health ----
-app.get("/health", (_req, res) => res.json({ ok: true }));
-
-// ---- ingest: YouTube + TikTok ----
+// ---- /api/ingest — YouTube/TikTok link → fetch readable text → summarize
 app.post("/api/ingest", async (req, res) => {
   try {
     const { url } = req.body || {};
     if (!url || typeof url !== "string") {
       return res.status(400).json({ ok: false, error: "Missing url" });
     }
+    // Identify provider (simple)
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    let provider = "web";
+    if (host.includes("youtube") || host === "youtu.be") provider = "youtube";
+    if (host.includes("tiktok")) provider = "tiktok";
 
-    let transcriptText = "";
-    let provider = "";
-
-    if (isYouTube(url)) {
-      provider = "youtube";
-      // 1) try official captions
-      const vid = youtubeId(url);
-      if (vid) {
-        try {
-          const caps = await YoutubeTranscript.fetchTranscript(vid);
-          if (caps?.length) {
-            transcriptText = caps.map((c) => c.text).join(" ");
-          }
-        } catch { /* no captions */ }
-      }
-      // 2) fallback: download audio-only and transcribe with Whisper
-      if (!transcriptText) {
-        const tmp = path.join(TMP_DIR, `yt-${Date.now()}.mp4`);
-        const stream = ytdl(url, { quality: "highestaudio", filter: "audioonly" });
-        await saveStreamToFile(stream, tmp);
-        const tr = await client.audio.transcriptions.create({
-          model: "whisper-1",
-          file: fs.createReadStream(tmp)
-        });
-        transcriptText = tr.text || "";
-        fs.promises.unlink(tmp).catch(() => {});
-      }
-    } else if (isTikTok(url)) {
-      provider = "tiktok";
-      // fetch page, find og:video direct link, download & transcribe
-      const page = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (iPhone; like Mac OS X) Safari/605.1.15" }
-      }).then(r => r.text());
-      const m = page.match(/property="og:video" content="([^"]+)"/i);
-      const videoUrl = m?.[1];
-      if (!videoUrl) {
-        return res.status(400).json({ ok: false, error: "Could not extract TikTok video URL" });
-      }
-      const tmp = path.join(TMP_DIR, `tt-${Date.now()}.mp4`);
-      const videoResp = await fetch(videoUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-      if (!videoResp.ok) throw new Error("Failed to download TikTok video");
-      await saveStreamToFile(videoResp.body, tmp);
-      const tr = await client.audio.transcriptions.create({
-        model: "whisper-1",
-        file: fs.createReadStream(tmp)
+    // Use Jina Reader to grab a clean, readable page text (works for most sites incl. YT/TikTok pages)
+    const jinaEndpoint = "https://r.jina.ai/http/" + url;
+    const resp = await fetch(jinaEndpoint, { timeout: 25_000 });
+    if (!resp.ok) {
+      return res.status(502).json({
+        ok: false,
+        error: `Fetch failed (${resp.status})`,
       });
-      transcriptText = tr.text || "";
-      fs.promises.unlink(tmp).catch(() => {});
-    } else {
-      return res.status(400).json({ ok: false, error: "Only YouTube or TikTok links supported (for now)" });
+    }
+    const text = await resp.text();
+    const trimmed = text.slice(0, 24_000); // keep prompt under model limits
+
+    // Summarize with OpenAI (if key present); else, return raw
+    if (!client) {
+      return res.json({
+        ok: true,
+        provider,
+        chars: trimmed.length,
+        analysis:
+          "[OpenAI key not set on server] Sample extracted text (first 1,000 chars):\n\n" +
+          trimmed.slice(0, 1000),
+      });
     }
 
-    if (!transcriptText?.trim()) {
-      return res.status(422).json({ ok: false, provider, error: "No transcript available" });
-    }
+    const system = `You are Ghost Sniper's research assistant.
+Summarize the video/page content into:
+1) One-paragraph overview
+2) 5-8 bullet key takeaways (concise, no fluff)
+3) Any specific trading heuristics, metrics, or patterns mentioned.
+Keep it short and actionable.`;
 
-    // summarize to trading insights
-    const prompt = `You are a fast crypto trading assistant.
-Return tight, actionable notes for sniping/momentum trading from the transcript below.
-Include:
-- 5–10 bullet SUMMARY
-- Any COINS/TICKERS mentioned
-- ACTIONS (entry/exit ideas, risk)
-- WARNINGS
-Make it concise.
-
-Transcript:
-${transcriptText.slice(0, 16000)}`;
-
-    const out = await client.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      messages: [{ role: "user", content: prompt }]
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content:
+            `Provider: ${provider}\nOriginal URL: ${url}\n\nExtracted text:\n` +
+            trimmed,
+        },
+      ],
     });
 
-    const analysis = out.choices[0]?.message?.content || "(no output)";
-    return res.json({ ok: true, provider, chars: transcriptText.length, analysis });
+    const analysis =
+      completion.choices?.[0]?.message?.content?.trim() ||
+      "No analysis returned.";
+    return res.json({ ok: true, provider, chars: trimmed.length, analysis });
   } catch (e) {
     console.error(e);
-    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-// default route → serve UI or friendly message
-app.get("*", (_req, res) => {
-  const indexPath = path.join(PUBLIC_DIR, "index.html");
-  if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
-  res
-    .status(200)
-    .send("index.html not found — commit your front-end or push /public/index.html");
+// ---- Quote/Trade stubs (wire later)
+app.get("/api/quote", async (req, res) => {
+  // TODO: call Jupiter quote v6 or Pump.fun API here
+  return res.json({ ok: true, demo: true, note: "quote stub" });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Ghost Sniper running on port ${PORT}`);
+app.post("/api/snipe", async (req, res) => {
+  // TODO: sign & send from the browser wallet; server should never hold keys
+  return res.json({ ok: true, demo: true, note: "snipe stub" });
 });
+
+app.post("/api/sell", async (req, res) => {
+  return res.json({ ok: true, demo: true, note: "sell stub" });
+});
+
+// ---- Fallback index
+app.get("*", (_req, res) => {
+  const idx = path.join(PUBLIC_DIR, "index.html");
+  if (fs.existsSync(idx)) return res.sendFile(idx);
+  res
+    .status(200)
+    .send(
+      `<h3>Ghost Sniper</h3><p class="muted">index.html not found — commit your front-end to <code>/public/index.html</code></p>`
+    );
+});
+
+app.listen(PORT, () =>
+  console.log(`🚀 Ghost Sniper running on port ${PORT}`)
+);
