@@ -1,192 +1,101 @@
-// server.js — Ghost Sniper backend (Node 22 / ESM)
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import fetch from "node-fetch";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import WebSocket from "ws";
+// ============== MARKET INTEL: Dexscreener + CoinGecko + TA =================
+import { RSI, EMA, MACD, BollingerBands } from "technicalindicators";
 
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// ---- Serve /public if it exists, else serve repo root
-const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
-  ? path.join(__dirname, "public")
-  : __dirname;
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Basic security/CORS (adjust origin if you want to lock it down)
-app.use(cors());
-app.use(express.json());
-app.use(express.static(PUBLIC_DIR));
-
-// ========= HEALTH =========
-app.get("/health", (_req, res) => res.json({ ok: true }));
-
-// ========= PUMP.FUN (PumpPortal) =========
-// 1) Live feed of new tokens (SSE → browser)
-app.get("/api/pump/stream", (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-  });
-  res.flushHeaders();
-
-  const ws = new WebSocket("wss://pumpportal.fun/api/data");
-  let open = false;
-
-  const heartbeat = setInterval(() => {
-    if (open) res.write(`event: ping\ndata: {}\n\n`);
-  }, 20000);
-
-  ws.on("open", () => {
-    open = true;
-    ws.send(JSON.stringify({ method: "subscribeNewToken" })); // subscribe to launches
-    // You can also subscribe to trades if you want:
-    // ws.send(JSON.stringify({ method: "subscribeTokenTrade", mint: "<MINT>" }))
-  });
-
-  ws.on("message", (data) => {
-    // Relay raw JSON to the browser as SSE
-    res.write(`data: ${data.toString()}\n\n`);
-  });
-
-  const end = () => {
-    clearInterval(heartbeat);
-    try { res.end(); } catch {}
-  };
-
-  ws.on("close", end);
-  ws.on("error", end);
-
-  req.on("close", () => {
-    try { ws.close(); } catch {}
-    end();
-  });
+/** Dexscreener: pairs by token (fast, no key) */
+app.get("/api/alpha/dxscreener/tokens", async (req, res) => {
+  try {
+    const { chainId = "solana", addresses = "" } = req.query;
+    if (!addresses) return res.status(400).json({ error: "addresses required (comma-separated mints)" });
+    const url = `https://api.dexscreener.com/tokens/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(addresses)}`;
+    const r = await fetch(url, { headers: { accept: "application/json" } });
+    const j = await r.json();
+    return res.json(j);
+  } catch (e) {
+    res.status(500).json({ error: "dxs_tokens_error", detail: String(e) });
+  }
 });
 
-// Helper to call PumpPortal trade-local and return base64 tx
-async function buildPumpTx({
-  publicKey, action, mint, amount,
-  denominatedInSol, slippage, priorityFee, pool
-}) {
-  const body = {
-    publicKey,
-    action, // "buy" | "sell"
-    mint,
-    amount, // number | "100%"
-    denominatedInSol: String(!!denominatedInSol), // expects string "true"/"false"
-    slippage,        // %
-    priorityFee,     // SOL
-    pool             // "pump" | "raydium"
-  };
-
-  const resp = await fetch("https://pumpportal.fun/api/trade-local", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  if (resp.status !== 200) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`PumpPortal ${resp.status}: ${text}`);
-  }
-
-  const buf = Buffer.from(new Uint8Array(await resp.arrayBuffer()));
-  return buf.toString("base64"); // serialized versioned tx (base64)
-}
-
-// 2) BUY (snipe) — non-custodial, user signs in Phantom
-app.post("/api/pump/snipe", async (req, res) => {
+/** Dexscreener: single pair (liquidity/txns/priceChange) */
+app.get("/api/alpha/dxscreener/pair", async (req, res) => {
   try {
-    const {
-      publicKey, mint, amount,
-      denominatedInSol = true,
-      slippage = Number(process.env.PUMP_SLIPPAGE || 1),
-      priorityFee = Number(process.env.PUMP_PRIORITY_FEE || 0.00002),
-      pool = process.env.PUMP_POOL || "pump"
-    } = req.body || {};
+    const { chainId = "solana", pair } = req.query;
+    if (!pair) return res.status(400).json({ error: "pair required" });
+    const url = `https://api.dexscreener.com/latest/dex/pairs/${encodeURIComponent(chainId)}/${encodeURIComponent(pair)}`;
+    const r = await fetch(url, { headers: { accept: "application/json" } });
+    const j = await r.json();
+    return res.json(j);
+  } catch (e) {
+    res.status(500).json({ error: "dxs_pair_error", detail: String(e) });
+  }
+});
 
-    if (!publicKey || !mint || !amount) {
-      return res.status(400).json({ error: "Missing publicKey, mint or amount" });
+/** Quick risk/quality score for a Solana mint using Dexscreener data */
+app.get("/api/alpha/score", async (req, res) => {
+  try {
+    const { chainId = "solana", tokenAddress } = req.query;
+    if (!tokenAddress) return res.status(400).json({ error: "tokenAddress required" });
+    const url = `https://api.dexscreener.com/token-pairs/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(tokenAddress)}`;
+    const r = await fetch(url);
+    const pairs = await r.json(); // array of pools
+    if (!Array.isArray(pairs) || !pairs.length) {
+      return res.json({ ok: true, score: 0, reason: "no_pools_found", pairs: [] });
     }
+    // Heuristic score (fast + explainable)
+    const best = pairs[0];
+    const liq = best?.liquidity?.usd || 0;
+    const tx5m = best?.txns?.m5?.buys + best?.txns?.m5?.sells || 0;
+    const buys5m = best?.txns?.m5?.buys || 0;
+    const change5m = best?.priceChange?.m5 ?? 0;
+    const ageMin = Math.max(0, (Date.now() - (best?.pairCreatedAt || Date.now())) / 60000);
 
-    const tx = await buildPumpTx({
-      publicKey, action: "buy", mint, amount,
-      denominatedInSol, slippage, priorityFee, pool
+    let score = 0;
+    if (liq >= 5000) score += 2;
+    if (liq >= 20000) score += 2;
+    if (tx5m >= 30) score += 2;
+    if (buys5m > (best?.txns?.m5?.sells || 0)) score += 1;
+    if (change5m > -15 && change5m < 150) score += 1;      // avoid nukes + insane spikes
+    if (ageMin >= 1 && ageMin <= 180) score += 1;          // not too old, not 0 sec
+    res.json({
+      ok: true,
+      score,
+      inputs: { liq, tx5m, buys5m, change5m, ageMin },
+      pair: best
     });
-
-    return res.json({ tx }); // base64
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "snipe_build_failed", detail: String(e) });
+    res.status(500).json({ error: "score_error", detail: String(e) });
   }
 });
 
-// 3) SELL (exit) — non-custodial
-app.post("/api/pump/exit", async (req, res) => {
+/** CoinGecko OHLC (requires Pro API key now). Set CG_API_KEY in Railway. */
+app.get("/api/alpha/gecko/ohlc", async (req, res) => {
   try {
-    const {
-      publicKey, mint,
-      amount = "100%",
-      denominatedInSol = false,
-      slippage = Number(process.env.PUMP_SLIPPAGE || 1),
-      priorityFee = Number(process.env.PUMP_PRIORITY_FEE || 0.00002),
-      pool = process.env.PUMP_POOL || "pump"
-    } = req.body || {};
-
-    if (!publicKey || !mint) {
-      return res.status(400).json({ error: "Missing publicKey or mint" });
-    }
-
-    const tx = await buildPumpTx({
-      publicKey, action: "sell", mint, amount,
-      denominatedInSol, slippage, priorityFee, pool
-    });
-
-    return res.json({ tx }); // base64
+    const { id = "bitcoin", days = "1" } = req.query;
+    const key = process.env.CG_API_KEY || "";
+    if (!key) return res.status(400).json({ error: "CG_API_KEY not set" });
+    const url = `https://pro-api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/ohlc?days=${encodeURIComponent(days)}`;
+    const r = await fetch(url, { headers: { "accept": "application/json", "x-cg-pro-api-key": key } });
+    const j = await r.json();
+    return res.json(j);
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "exit_build_failed", detail: String(e) });
+    res.status(500).json({ error: "gecko_ohlc_error", detail: String(e) });
   }
 });
 
-// ========= CHAT (OpenAI) =========
-import OpenAI from "openai";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-let openai = null;
-if (OPENAI_API_KEY) openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
-// POST /api/chat  -> { messages: [{role, content}, ...] }
-app.post("/api/chat", async (req, res) => {
+/** TA endpoint: send closes[], get RSI/EMA/MACD/BB back */
+app.post("/api/alpha/ta", async (req, res) => {
   try {
-    if (!openai) return res.json({ role: "assistant", content: "OpenAI key not set." });
-    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
-    const out = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
-      messages
+    const closes = (req.body?.closes || []).map(Number).filter(x => Number.isFinite(x));
+    if (closes.length < 30) return res.status(400).json({ error: "need >=30 closes" });
+
+    const rsi = RSI.calculate({ period: 14, values: closes });
+    const ema20 = EMA.calculate({ period: 20, values: closes });
+    const macd = MACD.calculate({
+      values: closes, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, SimpleMAOscillator: false, SimpleMASignal: false
     });
-    return res.json(out.choices[0].message);
+    const bb = BollingerBands.calculate({ period: 20, values: closes, stdDev: 2 });
+
+    res.json({ rsi, ema20, macd, bb });
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ role: "assistant", content: "Chat error." });
+    res.status(500).json({ error: "ta_error", detail: String(e) });
   }
-});
-
-// ========= FALLBACK: serve index.html =========
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
-});
-
-// ========= START =========
-app.listen(PORT, () => {
-  console.log(`🚀 Ghost Sniper running on port ${PORT}`);
 });
