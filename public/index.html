@@ -43,11 +43,11 @@ th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px
 <body>
 <header>
   <h1>👻 Ghost Sniper</h1>
-  <div class="sub">Phantom connect · Live feed · Quote → Sign → Swap · Auto-snipe rules. No keys on server.</div>
+  <div class="sub">Phantom connect · DexScreener feed+chart · Quote → Sign → Swap · Auto-Snipe · Positions/History · AI summaries</div>
 </header>
 
 <div class="wrap">
-  <!-- LEFT: Market / Chart / AutoSniper -->
+  <!-- LEFT: Intel / Feed / Chart / Auto-Snipe -->
   <section class="card">
     <h2>📡 Intel & Chart</h2>
     <div class="section">
@@ -66,7 +66,7 @@ th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px
       <hr/>
 
       <div class="row">
-        <input id="pairSearch" placeholder="Filter: symbol / 'pump' / 'raydium'"/>
+        <input id="pairSearch" placeholder="Filter: symbol / 'pump' / 'raydium' / 'meteora'"/>
         <button class="btn ok" id="btnReload">Reload Feed</button>
       </div>
       <div id="feed" class="list" style="margin-top:8px"></div>
@@ -99,7 +99,7 @@ th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px
     </div>
   </section>
 
-  <!-- RIGHT: Wallet / Sniper / Positions / History -->
+  <!-- RIGHT: Wallet / Sniper / Positions / History / Console -->
   <section class="card">
     <h2>🧰 Wallet & Sniper</h2>
     <div class="section">
@@ -112,7 +112,7 @@ th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px
       <div class="kv" style="margin-top:8px">
         <div>Amount (SOL)</div><input id="amt" type="number" step="0.001" value="0.02"/>
         <div>Slippage (bps)</div><input id="slip" type="number" step="1" value="100"/>
-        <div>Priority (lamports)</div><input id="prio" type="number" step="1000" value="auto" placeholder="auto"/>
+        <div>Priority (lamports)</div><input id="prio" type="text" value="auto" placeholder="auto or number"/>
       </div>
 
       <hr/>
@@ -142,7 +142,7 @@ th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px
 
     <h2>📒 Positions</h2>
     <div class="section">
-      <div class="small">Local only (no server custody). PnL updates live; sells require your signature.</div>
+      <div class="small">Local only (no server custody). PnL updates live; sells still require your signature.</div>
       <div id="positions" class="list" style="margin-top:8px"></div>
     </div>
 
@@ -177,6 +177,7 @@ $('connectPhantom').onclick=async()=>{try{
   if(!window.solana?.isPhantom){log("Phantom not injected. On iPhone, tap Open Phantom.");return}
   phantom=window.solana; const r=await phantom.connect(); pubkey=r.publicKey.toString();
   $('walletLabel').innerHTML='Wallet: <span style="color:#22cc88">'+pubkey.slice(0,5)+'…'+pubkey.slice(-5)+'</span>'; log("Phantom:",pubkey);
+  renderPositions(); renderHistory(); // namespace by pubkey
 }catch(e){log("connect_error:",e.message||e)}};
 
 /* ===== Prices ===== */
@@ -190,7 +191,8 @@ async function loadFeed(){
   try{
     const r=await fetch('/api/dexscreener/new'); const j=await r.json();
     const items=(j.items||[]).filter(p=>{
-      const s=`${p.baseSymbol} ${p.quoteSymbol} ${p.dexId} ${p.url}`.toLowerCase(); return q? s.includes(q):true;
+      const s=`${p.baseSymbol} ${p.quoteSymbol} ${p.dexId} ${p.url} ${(p.labels||[]).join(' ')}`.toLowerCase();
+      return q? s.includes(q):true;
     });
     const box=$('feed'); box.innerHTML='';
     items.forEach(p=>{
@@ -213,8 +215,7 @@ async function loadFeed(){
     });
   }catch(e){$('feed').innerHTML=`<div class="small">Feed error: ${e.message||e}</div>`}
 }
-function extractPair(url){ // dex url ends with /solana/<pairAddress>
-  try{const u=new URL(url); const parts=u.pathname.split('/').filter(Boolean); return parts[1]||'';}catch{return ''}}
+function extractPair(url){try{const u=new URL(url);const parts=u.pathname.split('/').filter(Boolean);return parts[1]||'';}catch{return ''}}
 
 /* ===== Chart embed ===== */
 $('btnLoadChart').onclick=()=>{
@@ -251,28 +252,22 @@ async function swapCurrent(reverse=false){
   try{
     if(!pubkey) throw new Error("Connect wallet first");
     if(!lastRoute) throw new Error("Get a quote first");
-    // if reverse, re-quote opposite direction
-    if(reverse){
-      await quote(lastOutMint, $('inMint').value);
-    }
-    const prioritizationFeeLamports = (''+$('prio').value).toLowerCase()==='auto' ? 'auto' : Number($('prio').value||0);
+    if(reverse){ await quote(lastOutMint, $('inMint').value); }
+    const prio = (''+$('prio').value).toLowerCase()==='auto' ? 'auto' : Number($('prio').value||0);
     log("Building swap…");
     const r=await fetch('/api/jup/swap',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({ userPublicKey:pubkey, wrapAndUnwrapSol:true, quoteResponse:lastRoute, prioritizationFeeLamports })
+      body:JSON.stringify({ userPublicKey:pubkey, wrapAndUnwrapSol:true, quoteResponse:lastRoute, prioritizationFeeLamports: prio })
     }); const j=await r.json();
     const b64=j?.swapTransaction; if(!b64) { log("swap_build_error:", j); throw new Error("No swapTransaction") }
     const sig = await signAndSend(b64);
     log("✅ sent:",sig);
     recordTrade(sig, reverse?'SELL':'BUY', lastOutMint, Number($('amt').value||0));
-    // track position
-    if(!reverse) addPosition(lastOutMint, Number($('amt').value||0));
-    else closePosition(lastOutMint);
+    if(!reverse) addPosition(lastOutMint, Number($('amt').value||0)); else closePosition(lastOutMint);
   }catch(e){log("swap_error:",e.message||e)}
 }
 
 async function signAndSend(b64){
   const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-  // try both payload shapes
   try{ const r1=await window.solana.signAndSendTransaction({ serializedTransaction:b64 }); return r1?.signature||r1; }
   catch(e1){
     try{ const r2=await window.solana.signAndSendTransaction({ message: bytes }); return r2?.signature||r2; }
@@ -280,7 +275,7 @@ async function signAndSend(b64){
   }
 }
 
-/* ===== Positions & History (localStorage) ===== */
+/* ===== Positions & History (localStorage per-wallet) ===== */
 const storeKey=(name)=>`${name}:v1:${pubkey||'anon'}`;
 const load=(k)=>{ try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}};
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
@@ -341,7 +336,7 @@ setInterval(async()=>{
     const p=list[i]; const px=await priceUsd(p.mint); if(!px) continue;
     const ch=(px-p.entry)/p.entry; const el=$('pmeta-'+i);
     if(el) el.innerHTML=`now $${fmt(px)} · <span class="${ch>=0?'pnl-pos':'pnl-neg'}">${(ch*100).toFixed(2)}%</span>`;
-    // TP/SL auto-sell prompt
+    // TP/SL triggers
     if (p.tp && ch>=p.tp){ log("TP hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
     if (p.sl && ch<=-p.sl){ log("SL hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
   }
@@ -371,17 +366,15 @@ setInterval(async()=>{
     });
 
     if(!candidates.length) return;
-    // Choose the first candidate (you can sort by liquidity/age/etc.)
     const pick=candidates[0];
     log("AUTO candidate:", pick.baseSymbol, "liq:", pick.liquidityUsd, "fdv:", pick.fdv);
     $('outMint').value=pick.baseAddress;
     $('chartPair').value=extractPair(pick.url); $('btnLoadChart').click();
 
-    // quote & prompt swap
     await quote(MINTS.SOL, pick.baseAddress);
     const autoAmt=Number($('autoAmt').value||0.02); $('amt').value=autoAmt;
     $('slip').value=$('autoSlip').value||"100";
-    await swapCurrent(false); // will ask Phantom to sign
+    await swapCurrent(false); // wallet prompts you to sign
     lastSnipeAt=Date.now();
   }catch(e){ log("auto_error:", e.message||e) }
 }, 10000);
@@ -404,6 +397,38 @@ async function snipe(inMint,outMint,url){
 }
 
 /* ===== Init ===== */
+function renderPositions(){
+  const box=$('positions'); box.innerHTML='';
+  const list=load(storeKey('positions'));
+  if(!list.length){ box.innerHTML='<div class="small">No active positions.</div>'; return; }
+  list.forEach((p,idx)=>{
+    const row=document.createElement('div'); row.className='item';
+    row.innerHTML=`<div>
+      <div><b>${p.mint.slice(0,6)}…${p.mint.slice(-6)}</b>
+        <span class="tag">size ${p.sizeSol} SOL</span>
+        <span class="tag">entry $${fmt(p.entry)}</span>
+        <span class="tag">${p.tp*100|0}% TP / ${p.sl*100|0}% SL</span>
+      </div>
+      <div class="meta small" id="pmeta-${idx}">—</div>
+    </div>
+    <div class="row"><button class="btn primary" id="psell-${idx}">Sell</button></div>`;
+    $('positions').appendChild(row);
+    $('psell-'+idx).onclick=async()=>{ await quote(p.mint, MINTS.SOL); await swapCurrent(true); };
+  });
+}
+function renderHistory(){
+  const tb=$('history').querySelector('tbody'); tb.innerHTML='';
+  const hist=load(storeKey('history'));
+  hist.slice(0,100).forEach(h=>{
+    const tr=document.createElement('tr');
+    const t=new Date(h.t).toLocaleTimeString();
+    tr.innerHTML=`<td>${t}</td><td>${h.mint.slice(0,5)}…${h.mint.slice(-5)}</td><td>${h.side}</td>
+      <td>${h.sizeSol}</td><td>${h.price?('$'+fmt(h.price)):''}</td>
+      <td>${h.pnl!=null?(h.pnl>=0?'<span class="pnl-pos">+$'+fmt(h.pnl):'<span class="pnl-neg">-$'+fmt(-h.pnl))+'</span>':''}</td>
+      <td>${h.sig?`<a target="_blank" href="https://solscan.io/tx/${h.sig}">view</a>`:''}</td>`;
+    tb.appendChild(tr);
+  });
+}
 renderPositions(); renderHistory();
 </script>
 </body>
