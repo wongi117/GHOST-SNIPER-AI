@@ -1,435 +1,117 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>👻 Ghost Sniper — Pro Board</title>
-<style>
-:root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#22cc88;--bad:#ff6b6b}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-header{display:flex;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid #1f2a40;position:sticky;top:0;background:#0b1220cc;backdrop-filter:blur(8px);z-index:9}
-h1{margin:0;font-size:20px}
-.sub{color:var(--muted);font-size:12px}
-.wrap{max-width:1320px;margin:16px auto;padding:0 12px;display:grid;gap:12px;grid-template-columns:1.25fr .75fr}
-@media(max-width:1100px){.wrap{display:block}}
-.card{background:var(--card);border:1px solid #1f2a40;border-radius:12px;overflow:hidden}
-.card h2{margin:0;padding:10px 12px;border-bottom:1px solid #1f2a40;font-size:15px}
-.section{padding:12px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.kv{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
-input,select,textarea{background:#0b1326;border:1px solid #1f2a40;border-radius:8px;color:#fff;padding:9px 10px;font:14px/1.2 inherit;width:100%}
-input[type="number"]{max-width:140px}
-.btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;font-weight:600;color:#fff;cursor:pointer}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.primary{background:#2166ff}
-.btn.ok{background:#2a3957}
-.btn.sell{background:#a03d3d}
-.badge{display:inline-block;padding:3px 8px;border:1px solid #1f2a40;border-radius:999px;font-size:12px;color:var(--muted)}
-hr{border:none;border-top:1px solid #1f2a40;margin:10px 0}
-pre{white-space:pre-wrap;background:#081127;border:1px solid #1f2a40;padding:10px;border-radius:10px;max-height:30vh;overflow:auto}
-.list{display:grid;gap:8px}
-.item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px;border:1px solid #1f2a40;border-radius:10px;background:#0b1326}
-.item .meta{color:var(--muted);font-size:12px}
-.small{font-size:12px;color:var(--muted)}
-a{color:#9cd1ff;text-decoration:none}a:hover{text-decoration:underline}
-table{width:100%;border-collapse:collapse}
-th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px}
-.pnl-pos{color:var(--ok)} .pnl-neg{color:var(--bad)}
-.tag{font-size:11px;padding:2px 6px;border:1px solid #1f2a40;border-radius:999px;margin-left:6px}
-.ghost{opacity:.7}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>👻 Ghost Sniper AI — Triple Bot</title>
+  <link rel="stylesheet" href="/styles.css"/>
+  <!-- Solana web3 (Phantom) -->
+  <script defer src="https://unpkg.com/@solana/web3.js@1.91.7/lib/index.iife.min.js"></script>
 </head>
 <body>
 <header>
   <h1>👻 Ghost Sniper</h1>
-  <div class="sub">Phantom connect · DexScreener feed+chart · Quote → Sign → Swap · Auto-Snipe · Positions/History · AI summaries</div>
+  <div class="sub">3 bots • Chat • URL intel • Paper mode by default</div>
 </header>
 
-<div class="wrap">
-  <!-- LEFT: Intel / Feed / Chart / Auto-Snipe -->
+<main class="grid">
+  <!-- LEFT: Wallet & quick actions -->
   <section class="card">
-    <h2>📡 Intel & Chart</h2>
-    <div class="section">
-      <div class="row">
-        <span class="badge" id="solp">SOL $–</span>
-        <span class="badge">Jupiter v6</span>
-        <span class="badge">DexScreener</span>
-      </div>
-
-      <div class="row" style="margin-top:8px">
-        <input id="ingestUrl" placeholder="Paste YouTube / TikTok / article URL for AI summary"/>
-        <button class="btn ok" id="btnIngest">Summarize</button>
-      </div>
-      <pre id="summary" class="small" style="margin-top:8px">Paste a link for a quick AI summary (trading takeaways, tickers, risks).</pre>
-
-      <hr/>
-
-      <div class="row">
-        <input id="pairSearch" placeholder="Filter: symbol / 'pump' / 'raydium' / 'meteora'"/>
-        <button class="btn ok" id="btnReload">Reload Feed</button>
-      </div>
-      <div id="feed" class="list" style="margin-top:8px"></div>
-
-      <hr/>
-      <div class="row">
-        <input id="chartPair" placeholder="DexScreener pairAddress (auto-filled from feed)"/>
-        <button class="btn ok" id="btnLoadChart">Load Chart</button>
-      </div>
-      <div id="chartWrap" style="height:440px;margin-top:8px;border:1px solid #1f2a40;border-radius:10px;overflow:hidden">
-        <div class="small" style="padding:10px">Load a chart to track trades visually.</div>
-      </div>
+    <h2>Wallets</h2>
+    <div class="row">
+      <button id="openPhantom" class="btn sec">Open Phantom (iOS)</button>
+      <button id="connectPhantom" class="btn">Connect Phantom</button>
+    </div>
+    <div class="row">
+      <button id="connectMetaMask" class="btn">Connect MetaMask</button>
+      <span id="addr" class="muted"></span>
     </div>
 
-    <h2>🤖 Auto-Snipe (client-side)</h2>
-    <div class="section">
-      <div class="row">
-        <label class="small">Enabled <input type="checkbox" id="autoOn"></label>
-        <label class="small">Amount (SOL) <input id="autoAmt" type="number" step="0.001" value="0.02" style="width:110px"></label>
-        <label class="small">Slippage (bps) <input id="autoSlip" type="number" step="1" value="100" style="width:90px"></label>
-        <label class="small">Cool-down (s) <input id="cooldown" type="number" step="1" value="90" style="width:90px"></label>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <label class="small">Min Liquidity $ <input id="minLiq" type="number" step="10" value="10000" style="width:120px"></label>
-        <label class="small">Max FDV $ <input id="maxFdv" type="number" step="10000" value="1500000" style="width:120px"></label>
-        <label class="small">Symbol must include <input id="symInc" placeholder="e.g. DOGE" style="width:160px"></label>
-        <label class="small">Exclude labels <input id="labelExc" placeholder="honeypot,scam" style="width:180px"></label>
-      </div>
-      <div class="small ghost">Auto-snipe scans the feed every 10s. When a pair matches rules and cool-down has elapsed, it executes Quote→Swap with your wallet signature prompt.</div>
+    <hr/>
+
+    <h2>Quick Snipe</h2>
+    <div class="row">
+      <label>Amount (SOL/ETH)
+        <input id="amount" value="0.01" type="number" step="0.001"/>
+      </label>
+      <label>Slippage %
+        <input id="slip" value="1" type="number" step="0.1"/>
+      </label>
+      <label>Priority fee</label>
+      <input id="prio" value="0" type="number" step="0.0001"/>
     </div>
+
+    <div class="row">
+      <label>Pool</label>
+      <select id="pool">
+        <option value="pumpfun">Pump.fun (Sol)</option>
+        <option value="uniswap">Uniswap/0x (Eth)</option>
+        <option value="sim">PaperSim</option>
+      </select>
+      <button id="btnSnipe" class="btn ok">Snipe (paper default)</button>
+    </div>
+
+    <pre id="console" class="term"></pre>
   </section>
 
-  <!-- RIGHT: Wallet / Sniper / Positions / History / Console -->
+  <!-- MID: Bots -->
   <section class="card">
-    <h2>🧰 Wallet & Sniper</h2>
-    <div class="section">
-      <div class="row">
-        <button class="btn ok" id="openPhantom" style="display:none">Open Phantom (iOS)</button>
-        <button class="btn primary" id="connectPhantom">Connect Phantom</button>
-        <span class="badge" id="walletLabel">Wallet: <span class="ghost">Not connected</span></span>
-      </div>
+    <h2>Sniper Bots (3)</h2>
 
-      <div class="kv" style="margin-top:8px">
-        <div>Amount (SOL)</div><input id="amt" type="number" step="0.001" value="0.02"/>
-        <div>Slippage (bps)</div><input id="slip" type="number" step="1" value="100"/>
-        <div>Priority (lamports)</div><input id="prio" type="text" value="auto" placeholder="auto or number"/>
+    <div class="bot">
+      <div class="badge">SOL</div>
+      <div class="flex1">
+        <div class="btitle">Sol PumpFun Bot</div>
+        <div class="muted">Signals → dex screener (approx), buys paper by default</div>
       </div>
-
-      <hr/>
-      <div class="kv">
-        <div>Input</div>
-        <select id="inMint">
-          <option value="So11111111111111111111111111111111111111112">SOL</option>
-          <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
-        </select>
-        <div>Output (mint)</div>
-        <input id="outMint" placeholder="target mint (autofill from feed)"/>
-      </div>
-
-      <div class="row" style="margin-top:10px">
-        <button class="btn ok" id="btnQuote">Get Quote</button>
-        <button class="btn primary" id="btnSwap" disabled>Sign & Swap</button>
-        <button class="btn sell" id="btnSell" disabled>Quick Sell</button>
-      </div>
-
-      <hr/>
-      <div class="row">
-        <label><input type="checkbox" id="tpOn" checked> TP +12%</label>
-        <label><input type="checkbox" id="slOn" checked> SL -8%</label>
-        <label><input type="checkbox" id="autoThin"> Auto-sell thin liq</label>
-      </div>
+      <button class="btn" data-start="sol1">Start</button>
+      <button class="btn sec" data-stop="sol1">Stop</button>
     </div>
 
-    <h2>📒 Positions</h2>
-    <div class="section">
-      <div class="small">Local only (no server custody). PnL updates live; sells still require your signature.</div>
-      <div id="positions" class="list" style="margin-top:8px"></div>
+    <div class="bot">
+      <div class="badge">ETH</div>
+      <div class="flex1">
+        <div class="btitle">EVM 0x Bot</div>
+        <div class="muted">Trending signals → paper buys</div>
+      </div>
+      <button class="btn" data-start="evm1">Start</button>
+      <button class="btn sec" data-stop="evm1">Stop</button>
     </div>
 
-    <h2>🧾 Trade History</h2>
-    <div class="section">
-      <table id="history">
-        <thead><tr><th>Time</th><th>Mint</th><th>Action</th><th>Size (SOL)</th><th>Price</th><th>PNL</th><th>Sig</th></tr></thead>
-        <tbody></tbody>
-      </table>
+    <div class="bot">
+      <div class="badge">SIM</div>
+      <div class="flex1">
+        <div class="btitle">PaperSim Trainer</div>
+        <div class="muted">Synthetic signals for practice</div>
+      </div>
+      <button class="btn" data-start="sim1">Start</button>
+      <button class="btn sec" data-stop="sim1">Stop</button>
     </div>
 
-    <h2>🧵 Console</h2>
-    <div class="section">
-      <pre id="log">Ready.</pre>
-    </div>
+    <hr/>
+    <button id="listBots" class="btn">List Bots</button>
+    <pre id="botsOut" class="term"></pre>
   </section>
-</div>
 
-<script>
-/* ===== Utilities ===== */
-const $=id=>document.getElementById(id);
-const log=(...a)=>{const el=$('log');el.textContent+=a.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' ')+'\\n';el.scrollTop=el.scrollHeight};
-const fmt=(n,d=4)=>Number(n||0).toFixed(d);
-const lamports = sol => Math.round(Number(sol||0)*1e9);
-const MINTS={SOL:'So11111111111111111111111111111111111111112',USDC:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'};
-let phantom=null,pubkey=null,lastRoute=null,lastOutMint=null,lastPair=null,lastSnipeAt=0;
-
-/* ===== Wallet helpers ===== */
-const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent); if(isIOS)$('openPhantom').style.display='inline-block';
-$('openPhantom').onclick=()=>location.href='https://phantom.app/ul/browse/'+encodeURIComponent(location.href);
-$('connectPhantom').onclick=async()=>{try{
-  if(!window.solana?.isPhantom){log("Phantom not injected. On iPhone, tap Open Phantom.");return}
-  phantom=window.solana; const r=await phantom.connect(); pubkey=r.publicKey.toString();
-  $('walletLabel').innerHTML='Wallet: <span style="color:#22cc88">'+pubkey.slice(0,5)+'…'+pubkey.slice(-5)+'</span>'; log("Phantom:",pubkey);
-  renderPositions(); renderHistory(); // namespace by pubkey
-}catch(e){log("connect_error:",e.message||e)}};
-
-/* ===== Prices ===== */
-async function refreshSol(){try{const r=await fetch('/api/price/sol');const j=await r.json();if(j?.usd)$('solp').textContent='SOL $'+j.usd}catch{}}
-refreshSol(); setInterval(refreshSol,30000);
-
-/* ===== Feed ===== */
-$('btnReload').onclick=loadFeed; loadFeed(); setInterval(loadFeed,10000);
-async function loadFeed(){
-  const q=($('pairSearch').value||'').toLowerCase();
-  try{
-    const r=await fetch('/api/dexscreener/new'); const j=await r.json();
-    const items=(j.items||[]).filter(p=>{
-      const s=`${p.baseSymbol} ${p.quoteSymbol} ${p.dexId} ${p.url} ${(p.labels||[]).join(' ')}`.toLowerCase();
-      return q? s.includes(q):true;
-    });
-    const box=$('feed'); box.innerHTML='';
-    items.forEach(p=>{
-      const row=document.createElement('div'); row.className='item';
-      row.innerHTML=`<div>
-        <div><b>${p.baseSymbol||'???'}</b> / ${p.quoteSymbol} · ${p.dexId} · <a href="${p.url}" target="_blank">chart</a>
-          <span class="tag">liq $${fmt(p.liquidityUsd,0)}</span>
-          <span class="tag">FDV $${fmt(p.fdv,0)}</span>
-        </div>
-        <div class="meta small">${p.baseAddress}</div>
-      </div>
-      <div class="row">
-        <button class="btn ok">Quote</button>
-        <button class="btn primary">Snipe</button>
-      </div>`;
-      const [bq,bs]=row.querySelectorAll('button');
-      bq.onclick=()=>{ $('outMint').value=p.baseAddress; $('chartPair').value=extractPair(p.url); $('btnLoadChart').click(); quote(MINTS.SOL,p.baseAddress); };
-      bs.onclick=()=>snipe(MINTS.SOL,p.baseAddress,p.url);
-      box.appendChild(row);
-    });
-  }catch(e){$('feed').innerHTML=`<div class="small">Feed error: ${e.message||e}</div>`}
-}
-function extractPair(url){try{const u=new URL(url);const parts=u.pathname.split('/').filter(Boolean);return parts[1]||'';}catch{return ''}}
-
-/* ===== Chart embed ===== */
-$('btnLoadChart').onclick=()=>{
-  const pair=$('chartPair').value.trim(); if(!pair) return $('chartWrap').innerHTML='<div class="small" style="padding:10px">Enter pair address.</div>';
-  lastPair=pair;
-  $('chartWrap').innerHTML = `<iframe src="https://dexscreener.com/solana/${encodeURIComponent(pair)}?embed=1&theme=dark"
-    style="width:100%;height:100%;border:0;"></iframe>`;
-};
-
-/* ===== Quote & Swap ===== */
-$('btnQuote').onclick=()=>quote($('inMint').value,$('outMint').value);
-async function quote(inputMint,outputMint){
-  try{
-    if(!pubkey) throw new Error("Connect wallet first");
-    outputMint=outputMint||$('outMint').value.trim(); if(!outputMint) throw new Error("Set output mint");
-    lastOutMint=outputMint;
-    const amountLamports = inputMint===MINTS.SOL ? lamports($('amt').value) : Math.round(Number($('amt').value||0)*1e6);
-    const slip = Math.max(1, Number($('slip').value||"100"));
-    const u=new URL('/api/jup/quote',location.origin);
-    u.searchParams.set('inputMint',inputMint); u.searchParams.set('outputMint',outputMint);
-    u.searchParams.set('amount',amountLamports); u.searchParams.set('slippageBps',slip);
-    log("Quoting…", {inputMint,outputMint,amountLamports,slip});
-    const r=await fetch(u); const j=await r.json();
-    const route=j?.data?.[0]||j?.data; if(!route) throw new Error("No route");
-    lastRoute=route; $('btnSwap').disabled=false; $('btnSell').disabled=false;
-    log("QUOTE OK",{inAmount:route.inAmount,outAmount:route.outAmount});
-  }catch(e){log("quote_error:",e.message||e)}
-}
-
-$('btnSwap').onclick=()=>swapCurrent(false);
-$('btnSell').onclick=()=>swapCurrent(true);
-
-async function swapCurrent(reverse=false){
-  try{
-    if(!pubkey) throw new Error("Connect wallet first");
-    if(!lastRoute) throw new Error("Get a quote first");
-    if(reverse){ await quote(lastOutMint, $('inMint').value); }
-    const prio = (''+$('prio').value).toLowerCase()==='auto' ? 'auto' : Number($('prio').value||0);
-    log("Building swap…");
-    const r=await fetch('/api/jup/swap',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({ userPublicKey:pubkey, wrapAndUnwrapSol:true, quoteResponse:lastRoute, prioritizationFeeLamports: prio })
-    }); const j=await r.json();
-    const b64=j?.swapTransaction; if(!b64) { log("swap_build_error:", j); throw new Error("No swapTransaction") }
-    const sig = await signAndSend(b64);
-    log("✅ sent:",sig);
-    recordTrade(sig, reverse?'SELL':'BUY', lastOutMint, Number($('amt').value||0));
-    if(!reverse) addPosition(lastOutMint, Number($('amt').value||0)); else closePosition(lastOutMint);
-  }catch(e){log("swap_error:",e.message||e)}
-}
-
-async function signAndSend(b64){
-  const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-  try{ const r1=await window.solana.signAndSendTransaction({ serializedTransaction:b64 }); return r1?.signature||r1; }
-  catch(e1){
-    try{ const r2=await window.solana.signAndSendTransaction({ message: bytes }); return r2?.signature||r2; }
-    catch(e2){ throw new Error("Wallet rejected payloads: "+(e1?.message||e1)+" / "+(e2?.message||e2)); }
-  }
-}
-
-/* ===== Positions & History (localStorage per-wallet) ===== */
-const storeKey=(name)=>`${name}:v1:${pubkey||'anon'}`;
-const load=(k)=>{ try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}};
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-
-function renderPositions(){
-  const box=$('positions'); box.innerHTML='';
-  const list=load(storeKey('positions'));
-  if(!list.length){ box.innerHTML='<div class="small">No active positions.</div>'; return; }
-  list.forEach((p,idx)=>{
-    const row=document.createElement('div'); row.className='item';
-    row.innerHTML=`<div>
-      <div><b>${p.mint.slice(0,6)}…${p.mint.slice(-6)}</b>
-        <span class="tag">size ${p.sizeSol} SOL</span>
-        <span class="tag">entry $${fmt(p.entry)}</span>
-        <span class="tag">${p.tp*100|0}% TP / ${p.sl*100|0}% SL</span>
-      </div>
-      <div class="meta small" id="pmeta-${idx}">—</div>
+  <!-- RIGHT: Chat + URL intel -->
+  <section class="card">
+    <h2>AI Chat</h2>
+    <div id="chatBox" class="chat"></div>
+    <div class="row">
+      <input id="chatInput" placeholder="Ask anything… or say 'start sol sniper 0.05 on pump.fun'"/>
+      <button id="sendChat" class="btn">Send</button>
     </div>
-    <div class="row"><button class="btn primary" id="psell-${idx}">Sell</button></div>`;
-    $('positions').appendChild(row);
-    $('psell-'+idx).onclick=async()=>{ await quote(p.mint, MINTS.SOL); await swapCurrent(true); };
-  });
-}
-function addPosition(mint,sizeSol){
-  (async()=>{
-    const entry=await priceUsd(mint)||0;
-    const tp=$('tpOn').checked?0.12:0, sl=$('slOn').checked?0.08:0;
-    const list=load(storeKey('positions')); list.push({ mint, sizeSol, entry, tp, sl, t:Date.now() }); save(storeKey('positions'),list); renderPositions();
-  })();
-}
-function closePosition(mint){
-  const list=load(storeKey('positions')); const i=list.findIndex(x=>x.mint===mint);
-  if(i>=0){ list.splice(i,1); save(storeKey('positions'),list); renderPositions(); }
-}
-function recordTrade(signature, side, mint, sizeSol, pnl=null){
-  const hist=load(storeKey('history'));
-  hist.unshift({ t:Date.now(), side, mint, sizeSol, pnl, sig:signature });
-  save(storeKey('history'), hist); renderHistory();
-}
-function renderHistory(){
-  const tb=$('history').querySelector('tbody'); tb.innerHTML='';
-  const hist=load(storeKey('history'));
-  hist.slice(0,100).forEach(h=>{
-    const tr=document.createElement('tr');
-    const t=new Date(h.t).toLocaleTimeString();
-    tr.innerHTML=`<td>${t}</td><td>${h.mint.slice(0,5)}…${h.mint.slice(-5)}</td><td>${h.side}</td>
-      <td>${h.sizeSol}</td><td>${h.price?('$'+fmt(h.price)):''}</td>
-      <td>${h.pnl!=null?(h.pnl>=0?'<span class="pnl-pos">+$'+fmt(h.pnl):'<span class="pnl-neg">-$'+fmt(-h.pnl))+'</span>':''}</td>
-      <td><a target="_blank" href="https://solscan.io/tx/${h.sig}">view</a></td>`;
-    tb.appendChild(tr);
-  });
-}
 
-/* live PnL updater */
-setInterval(async()=>{
-  const list=load(storeKey('positions')); if(!list.length) return;
-  for(let i=0;i<list.length;i++){
-    const p=list[i]; const px=await priceUsd(p.mint); if(!px) continue;
-    const ch=(px-p.entry)/p.entry; const el=$('pmeta-'+i);
-    if(el) el.innerHTML=`now $${fmt(px)} · <span class="${ch>=0?'pnl-pos':'pnl-neg'}">${(ch*100).toFixed(2)}%</span>`;
-    // TP/SL triggers
-    if (p.tp && ch>=p.tp){ log("TP hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
-    if (p.sl && ch<=-p.sl){ log("SL hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
-  }
-}, 6000);
-
-/* ===== Prices by mint ===== */
-async function priceUsd(mint){ try{ const r=await fetch(`/api/dex/price?token=${mint}`); const j=await r.json(); return Number(j?.priceUsd||0)||null } catch { return null } }
-
-/* ===== Auto-Snipe loop ===== */
-setInterval(async()=>{
-  if(!$('autoOn').checked || !pubkey) return;
-  const now=Date.now(); const cool = Number($('cooldown').value||90)*1000;
-  if (now - lastSnipeAt < cool) return;
-
-  try{
-    const r=await fetch('/api/dexscreener/new'); const j=await r.json();
-    const minLiq=Number($('minLiq').value||0), maxFdv=Number($('maxFdv').value||1e12);
-    const inc=($('symInc').value||'').toLowerCase(); const exc=($('labelExc').value||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
-
-    const candidates=(j.items||[]).filter(p=>{
-      const sym=(p.baseSymbol||'').toLowerCase(); const flags=((p.labels||[]).join(' ')||'').toLowerCase();
-      if (minLiq && (p.liquidityUsd||0) < minLiq) return false;
-      if (maxFdv && (p.fdv||1e12) > maxFdv) return false;
-      if (inc && !sym.includes(inc)) return false;
-      if (exc.length && exc.some(tag=>flags.includes(tag))) return false;
-      return true;
-    });
-
-    if(!candidates.length) return;
-    const pick=candidates[0];
-    log("AUTO candidate:", pick.baseSymbol, "liq:", pick.liquidityUsd, "fdv:", pick.fdv);
-    $('outMint').value=pick.baseAddress;
-    $('chartPair').value=extractPair(pick.url); $('btnLoadChart').click();
-
-    await quote(MINTS.SOL, pick.baseAddress);
-    const autoAmt=Number($('autoAmt').value||0.02); $('amt').value=autoAmt;
-    $('slip').value=$('autoSlip').value||"100";
-    await swapCurrent(false); // wallet prompts you to sign
-    lastSnipeAt=Date.now();
-  }catch(e){ log("auto_error:", e.message||e) }
-}, 10000);
-
-/* ===== AI ingest ===== */
-$('btnIngest').onclick=async()=>{
-  const url=$('ingestUrl').value.trim(); if(!url) return;
-  $('summary').textContent="Summarizing…";
-  try{ const r=await fetch('/api/ingest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url})});
-    const j=await r.json(); $('summary').textContent=j.summary||JSON.stringify(j,null,2);
-  }catch(e){ $('summary').textContent="Error: "+(e.message||e) }
-};
-
-/* ===== Manual quick snipe from feed ===== */
-async function snipe(inMint,outMint,url){
-  $('outMint').value=outMint;
-  $('chartPair').value=extractPair(url); $('btnLoadChart').click();
-  await quote(inMint,outMint);
-  await swapCurrent(false);
-}
-
-/* ===== Init ===== */
-function renderPositions(){
-  const box=$('positions'); box.innerHTML='';
-  const list=load(storeKey('positions'));
-  if(!list.length){ box.innerHTML='<div class="small">No active positions.</div>'; return; }
-  list.forEach((p,idx)=>{
-    const row=document.createElement('div'); row.className='item';
-    row.innerHTML=`<div>
-      <div><b>${p.mint.slice(0,6)}…${p.mint.slice(-6)}</b>
-        <span class="tag">size ${p.sizeSol} SOL</span>
-        <span class="tag">entry $${fmt(p.entry)}</span>
-        <span class="tag">${p.tp*100|0}% TP / ${p.sl*100|0}% SL</span>
-      </div>
-      <div class="meta small" id="pmeta-${idx}">—</div>
+    <hr/>
+    <h2>URL Intel (YT/TikTok)</h2>
+    <div class="row">
+      <input id="urlInput" placeholder="Paste a YouTube/TikTok link"/>
+      <button id="analyzeUrl" class="btn">Analyze</button>
     </div>
-    <div class="row"><button class="btn primary" id="psell-${idx}">Sell</button></div>`;
-    $('positions').appendChild(row);
-    $('psell-'+idx).onclick=async()=>{ await quote(p.mint, MINTS.SOL); await swapCurrent(true); };
-  });
-}
-function renderHistory(){
-  const tb=$('history').querySelector('tbody'); tb.innerHTML='';
-  const hist=load(storeKey('history'));
-  hist.slice(0,100).forEach(h=>{
-    const tr=document.createElement('tr');
-    const t=new Date(h.t).toLocaleTimeString();
-    tr.innerHTML=`<td>${t}</td><td>${h.mint.slice(0,5)}…${h.mint.slice(-5)}</td><td>${h.side}</td>
-      <td>${h.sizeSol}</td><td>${h.price?('$'+fmt(h.price)):''}</td>
-      <td>${h.pnl!=null?(h.pnl>=0?'<span class="pnl-pos">+$'+fmt(h.pnl):'<span class="pnl-neg">-$'+fmt(-h.pnl))+'</span>':''}</td>
-      <td>${h.sig?`<a target="_blank" href="https://solscan.io/tx/${h.sig}">view</a>`:''}</td>`;
-    tb.appendChild(tr);
-  });
-}
-renderPositions(); renderHistory();
-</script>
+    <pre id="intelOut" class="term"></pre>
+  </section>
+</main>
+
+<script src="/app.js"></script>
 </body>
 </html>
