@@ -1,3 +1,5 @@
+// server.js – Ghost Sniper AI Backend
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -12,66 +14,77 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Serve /public if it exists, otherwise serve repo root
+// ====== CONFIG ======
+const app = express();
+const PORT = process.env.PORT || 3000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
   ? path.join(__dirname, "public")
   : __dirname;
 
-const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
-const PORT = process.env.PORT || 3000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// ====== Health Check ======
+app.get("/health", (_req, res) => {
+  res.json({ status: "Ghost Sniper AI backend is running" });
+});
 
-// Health check
-app.get("/health", (_req, res) => res.json({ ok: true, port: PORT }));
-
-// Quote proxy (Jupiter example)
-app.get("/api/quote", async (req, res) => {
+// ====== Wallet Connect - Phantom (Solana) ======
+app.post("/connect-phantom", async (req, res) => {
   try {
-    const { inputMint, outputMint, amount, slippageBps } = req.query;
-    if (!inputMint || !outputMint || !amount)
-      return res.status(400).json({ error: "Missing required params" });
-
-    const u = new URL("https://quote-api.jup.ag/v6/quote");
-    u.searchParams.set("inputMint", inputMint);
-    u.searchParams.set("outputMint", outputMint);
-    u.searchParams.set("amount", String(amount));
-    u.searchParams.set("slippageBps", String(slippageBps || 50));
-
-    const r = await fetch(u.toString());
-    res.json(await r.json());
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "quote_api_error", detail: String(e) });
+    const { publicKey } = req.body;
+    console.log(`Phantom wallet connected: ${publicKey}`);
+    res.json({ success: true, message: "Phantom wallet connected", publicKey });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Phantom connection failed" });
   }
 });
 
-// Simple AI chat passthrough (needs OPENAI_API_KEY)
-app.post("/api/chat", async (req, res) => {
+// ====== Wallet Connect - MetaMask (Ethereum) ======
+app.post("/connect-metamask", async (req, res) => {
   try {
+    const { address } = req.body;
+    console.log(`MetaMask wallet connected: ${address}`);
+    res.json({ success: true, message: "MetaMask wallet connected", address });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "MetaMask connection failed" });
+  }
+});
+
+// ====== Sniper Bot Trade Execution ======
+app.post("/execute-trade", async (req, res) => {
+  try {
+    const { chain, tokenAddress, amount } = req.body;
+    console.log(`Executing trade on ${chain}: ${amount} of ${tokenAddress}`);
+    // TODO: Add Solana/Ethereum trade execution logic here
+    res.json({ success: true, message: `Trade executed on ${chain}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Trade execution failed" });
+  }
+});
+
+// ====== AI Assistant ======
+app.post("/chat", async (req, res) => {
+  try {
+    const { message } = req.body;
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
-    const { messages } = req.body || { messages: [{ role: "user", content: "ping" }] };
-    const out = await client.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.3,
-      messages
+      messages: [{ role: "user", content: message }],
     });
-    res.json(out.choices[0].message);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "chat_error", detail: String(e) });
+    res.json({ reply: completion.choices[0].message.content });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "AI chat failed" });
   }
 });
 
-// Serve the UI
-app.get("*", (_req, res) =>
-  res.sendFile(path.join(PUBLIC_DIR, "index.html"))
-);
-
-// IMPORTANT for Railway: bind to 0.0.0.0
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`🚀 Ghost Sniper running on port ${PORT}`)
-);
+// ====== Start Server ======
+app.listen(PORT, () => {
+  console.log(`Ghost Sniper AI backend running on port ${PORT}`);
+});
