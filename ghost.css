@@ -1,0 +1,18 @@
+
+:root { --bg:#0b0f14; --panel:#121821; --ink:#eaf2ff; --muted:#8aa2c7; --accent:#6ee7ff; }
+*{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;background:radial-gradient(1200px 800px at 10% 5%,#111a26 0%,#0b0f14 60%),var(--bg);color:var(--ink)}
+.topbar{display:flex;gap:16px;align-items:center;padding:16px 20px;border-bottom:1px solid #1c2633;background:linear-gradient(90deg,#0e141d,#0b0f14)}
+.brand{font-weight:700;font-size:18px}
+.desc{color:var(--muted);font-size:14px}
+.layout{max-width:1200px;margin:0 auto}
+.main{display:grid;grid-template-columns:460px 1fr;gap:20px;padding:20px}
+.swap,.chat{background:var(--panel);border:1px solid #1b2432;border-radius:14px;padding:16px;min-height:720px}
+h2{margin:0 0 12px 0;font-size:16px;font-weight:700}
+.chatlog{height:560px;overflow:auto;border:1px solid #1b2432;border-radius:12px;padding:12px;background:#0c121a}
+.bubble{max-width:90%;padding:10px 12px;border-radius:12px;margin:8px 0;white-space:pre-wrap;line-height:1.35}
+.bubble.user{background:#132033;align-self:flex-end;color:#dfeaff}
+.bubble.ai{background:#0e1a2a;border:1px solid #21324a;color:#bfe1ff}
+.chatform{display:flex;gap:8px;margin-top:10px}
+.msg{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #21324a;background:#0c121a;color:var(--ink)}
+button{padding:10px 14px;border-radius:10px;border:1px solid #21324a;background:#0e1a2a;color:var(--ink);cursor:pointer}
+.hint{margin-top:8px;color:var(--muted);font-size:12px}

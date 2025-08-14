@@ -1,0 +1,81 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ghost Sniper — Day‑0 MVP</title>
+  <link rel="stylesheet" href="/ghost.css" />
+  <!-- Jupiter Terminal script -->
+  <script src="https://terminal.jup.ag/main-v4.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <header class="topbar">
+      <div class="brand">👻 Ghost Sniper</div>
+      <div class="desc">Chat on the right. Trade on the left. You sign — no keys on server.</div>
+    </header>
+
+    <main class="main">
+      <section class="swap">
+        <h2>Swap (Jupiter Terminal)</h2>
+        <div id="integrated-terminal" style="width: 420px; height: 640px;"></div>
+      </section>
+
+      <section class="chat">
+        <h2>Ghost Chat</h2>
+        <div id="chatlog" class="chatlog"></div>
+        <form id="chatform" class="chatform">
+          <input id="msg" class="msg" placeholder="Ask me for a quote: buy 0.1 SOL of WIF" />
+          <button>Send</button>
+        </form>
+        <div class="hint">Tip: Ask “Quote 0.1 SOL → USDC” and I’ll fetch a route.</div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // --- Initialize Jupiter Terminal (Integrated mode)
+    window.Jupiter.init({
+      displayMode: "integrated",
+      integratedTargetId: "integrated-terminal",
+    });
+
+    // --- Minimal chat UI
+    const chatlog = document.getElementById("chatlog");
+    const form = document.getElementById("chatform");
+    const msg = document.getElementById("msg");
+
+    const messages = [
+      { role: "system", content: "You are Ghost Sniper, a trading assistant. If user asks for a quote, call get_quote with correct mints and amount in smallest units (lamports). If unsure of a mint, ask a clarifying question. Keep answers short." }
+    ];
+
+    function add(role, text) {
+      const div = document.createElement("div");
+      div.className = role === "user" ? "bubble user" : "bubble ai";
+      div.textContent = text;
+      chatlog.appendChild(div);
+      chatlog.scrollTop = chatlog.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = msg.value.trim();
+      if (!text) return;
+      add("user", text);
+      msg.value = "";
+
+      messages.push({ role: "user", content: text });
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      });
+      const data = await r.json();
+      const reply = data?.content || JSON.stringify(data);
+      messages.push({ role: "assistant", content: reply });
+      add("ai", reply);
+    });
+  </script>
+</body>
+</html>
