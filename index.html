@@ -1,254 +1,75 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>👻 Ghost Sniper — Pump.fun + Chat</title>
-  <link rel="stylesheet" href="ghost.css" />
-  <!-- Solana web3 for Phantom signing (deserializing versioned tx) -->
-  <script src="https://unpkg.com/@solana/web3.js@1.95.2/lib/index.iife.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>👻 Ghost Sniper — Ultra</title>
+<link rel="stylesheet" href="ghost.css" />
+<script src="https://unpkg.com/@solana/web3.js@1.95.2/lib/index.iife.min.js"></script>
+<style>
+  .grid{display:grid;gap:10px}
+  @media(min-width:900px){.grid{grid-template-columns:1.2fr .8fr}}
+  .half{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+</style>
 </head>
 <body>
-  <header>
-    <h1>👻 Ghost Sniper</h1>
-    <div class="sub">Chat on the right. Snipe Pump.fun on the left. You sign — no keys on server.</div>
-  </header>
+<header>
+  <h1>👻 Ghost Sniper — Ultra</h1>
+  <div class="sub">Pump.fun snipes + DEX Screener + CoinGecko + TA — you sign, not us.</div>
+</header>
 
-  <div class="wrap">
-    <!-- LEFT: Pump.fun Sniper -->
-    <section class="card">
-      <h2>Pump.fun Sniper</h2>
+<div class="wrap grid">
+  <section class="card">
+    <h2>Pump.fun Sniper</h2>
+    <div class="row">
+      <button id="openPhantom" class="btn" style="display:none">Open in Phantom (iPhone)</button>
+      <button id="connectPhantom" class="btn">Connect Phantom</button>
+      <span id="phantomAddr" class="muted mono"></span>
+    </div>
 
-      <div class="row">
-        <button id="openPhantomBtn" class="btn muted" style="display:none">Open in Phantom (iPhone)</button>
-        <button id="phantomConnect" class="btn">Connect Phantom</button>
-        <div id="phantomAddr" class="muted"></div>
-      </div>
+    <div class="row">
+      <label>Amount (SOL)<input id="amt" type="number" step="0.001" value="0.05"></label>
+      <label>Slip %<input id="slip" type="number" step="0.1" value="1"></label>
+      <label>Priority (SOL)<input id="fee" type="number" step="0.00001" value="0.00002"></label>
+      <select id="pool">
+        <option value="pump">pump</option>
+        <option value="raydium">raydium</option>
+      </select>
+    </div>
 
+    <div class="pad muted">New tokens (live):</div>
+    <table class="table">
+      <thead><tr><th>Time</th><th>Name</th><th>Mint</th><th>Actions</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Intel + TA</h2>
+
+    <div class="card" style="margin-bottom:10px">
+      <h3>DEX Screener</h3>
       <div class="pad">
-        <div class="muted" style="margin-bottom:8px;">
-          Live launches (from PumpPortal). Tap snipe to build a tx; approve in Phantom.
+        <div class="half">
+          <input id="dxsQuery" placeholder="Search e.g. SOL/USDC or mint address" />
+          <button id="dxsBtn" class="btn">Search</button>
         </div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Name</th>
-              <th>Mint (CA)</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="pumpRows"></tbody>
-        </table>
+        <pre id="dxsOut" class="chat"></pre>
       </div>
+    </div>
 
-      <div class="row">
-        <label>Amount (SOL): <input id="snipeAmount" type="number" min="0" step="0.001" value="0.05"></label>
-        <label>Slippage %: <input id="snipeSlip" type="number" min="0" step="0.1" value="1"></label>
-        <label>Priority (SOL): <input id="snipeFee" type="number" min="0" step="0.00001" value="0.00002"></label>
-        <select id="snipePool">
-          <option value="pump">pump</option>
-          <option value="raydium">raydium</option>
-        </select>
+    <div class="card" style="margin-bottom:10px">
+      <h3>CoinGecko Prices</h3>
+      <div class="pad">
+        <div class="half">
+          <input id="cgIds" value="solana,ethereum" />
+          <button id="cgBtn" class="btn">Fetch</button>
+        </div>
+        <pre id="cgOut" class="chat"></pre>
       </div>
-    </section>
+    </div>
 
-    <!-- RIGHT: Chat -->
-    <section class="card">
-      <h2>AI Chat</h2>
-      <div id="chatLog" class="chat"></div>
-      <form id="chatForm" class="row" autocomplete="off">
-        <input id="chatInput" placeholder="Ask Ghost Sniper…" />
-        <button class="btn" type="submit">Send</button>
-      </form>
-
-      <!-- MetaMask (simple connect) -->
-      <div class="divider"></div>
-      <h3>MetaMask (Ethereum)</h3>
-      <div class="row">
-        <button id="mmConnect" class="btn">Connect MetaMask</button>
-        <div id="mmAddr" class="muted"></div>
-      </div>
-    </section>
-  </div>
-
-<script>
-  const web3 = window.solanaWeb3; // from @solana/web3.js IIFE
-  const $ = (sel) => document.querySelector(sel);
-  const pumpRows = $("#pumpRows");
-  const snipeAmount = $("#snipeAmount");
-  const snipeSlip = $("#snipeSlip");
-  const snipeFee = $("#snipeFee");
-  const snipePool = $("#snipePool");
-
-  // ---------- Phantom helpers ----------
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent);
-  }
-
-  async function getPhantom() {
-    // In Phantom in-app browser, window.phantom?.solana is injected
-    const provider = window?.phantom?.solana ?? window?.solana;
-    if (provider?.isPhantom) return provider;
-    return null;
-  }
-
-  async function ensurePhantomConnected() {
-    const provider = await getPhantom();
-    if (!provider) throw new Error("Phantom not detected");
-    const resp = await provider.connect();
-    $("#phantomAddr").textContent = resp.publicKey?.toString?.() || resp.publicKey || "";
-    return provider;
-    }
-
-  // Banner for iPhone Safari → open inside Phantom
-  (function maybeShowOpenInPhantom(){
-    const btn = $("#openPhantomBtn");
-    if (!btn) return;
-    getPhantom().then((p)=>{
-      if (p) { btn.style.display="none"; return; }
-      if (isIOS()) {
-        btn.style.display = "inline-block";
-        btn.onclick = () => {
-          const url = encodeURIComponent(window.location.href);
-          window.location.href = `https://phantom.app/ul/browse/${url}`;
-        };
-      }
-    });
-  })();
-
-  $("#phantomConnect").onclick = async () => {
-    try {
-      const provider = await ensurePhantomConnected();
-      console.log("Phantom connected:", provider.publicKey.toString());
-    } catch (e) {
-      alert(e.message || e);
-    }
-  };
-
-  // ---------- Pump.fun live feed (SSE) ----------
-  function appendLaunchRow(obj){
-    // obj is whatever PumpPortal sends for new tokens; try common fields
-    const createdAt = new Date().toLocaleTimeString();
-    const name = obj?.name || obj?.tokenName || "New token";
-    const mint = obj?.mint || obj?.ca || obj?.tokenAddress || "unknown";
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${createdAt}</td>
-      <td>${name}</td>
-      <td><code class="mono">${mint}</code></td>
-      <td>
-        <button class="btn small" data-mint="${mint}">Snipe</button>
-        <button class="btn small outline" data-exit="${mint}">Exit</button>
-      </td>
-    `;
-    pumpRows.prepend(tr);
-
-    tr.querySelector("[data-mint]")?.addEventListener("click", () => doSnipe(mint));
-    tr.querySelector("[data-exit]")?.addEventListener("click", () => doExit(mint));
-  }
-
-  function startPumpStream(){
-    const es = new EventSource("/api/pump/stream");
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        // Expect something like { type: "newToken", mint, name, ... }
-        appendLaunchRow(data);
-      } catch (e) {
-        console.warn("SSE parse", e);
-      }
-    };
-    es.onerror = (e) => console.warn("SSE error", e);
-  }
-  startPumpStream();
-
-  // ---------- Snipe / Exit ----------
-  async function buildTx(endpoint, mint, overrides = {}){
-    const provider = await ensurePhantomConnected();
-    const publicKey = provider.publicKey.toString();
-    const body = {
-      publicKey,
-      mint,
-      slippage: Number(snipeSlip.value || 1),
-      priorityFee: Number(snipeFee.value || 0.00002),
-      pool: snipePool.value,
-      ...overrides
-    };
-    const r = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j?.error || "build failed");
-    return { base64: j.tx, provider };
-  }
-
-  async function signAndSendBase64(base64, provider){
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const tx = web3.VersionedTransaction.deserialize(bytes);
-    const { signature } = await provider.signAndSendTransaction(tx);
-    alert(`Submitted: ${signature}`);
-    return signature;
-  }
-
-  async function doSnipe(mint){
-    try {
-      const amt = Number(snipeAmount.value || 0.05);
-      const { base64, provider } = await buildTx("/api/pump/snipe", mint, {
-        amount: amt,
-        denominatedInSol: true
-      });
-      await signAndSendBase64(base64, provider);
-    } catch (e) { alert(e.message || e); }
-  }
-
-  async function doExit(mint){
-    try {
-      const { base64, provider } = await buildTx("/api/pump/exit", mint, {
-        amount: "100%",
-        denominatedInSol: false
-      });
-      await signAndSendBase64(base64, provider);
-    } catch (e) { alert(e.message || e); }
-  }
-
-  // ---------- Chat ----------
-  const chatLog = $("#chatLog");
-  function addMsg(role, text){
-    const div = document.createElement("div");
-    div.className = role;
-    div.textContent = text;
-    chatLog.appendChild(div);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-  $("#chatForm").addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    const val = $("#chatInput").value.trim();
-    if (!val) return;
-    addMsg("user", val);
-    $("#chatInput").value = "";
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [
-        { role: "system", content: "You are Ghost Sniper. Be concise." },
-        { role: "user", content: val }
-      ]})
-    });
-    const j = await r.json();
-    addMsg("assistant", j?.content || "…");
-  });
-
-  // ---------- MetaMask (connect only for now) ----------
-  $("#mmConnect").onclick = async ()=>{
-    if (!window.ethereum) { alert("MetaMask not found"); return; }
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      $("#mmAddr").textContent = accounts[0] || "";
-    } catch(e){ alert(e.message || e); }
-  };
-</script>
-</body>
-</html>
+    <div class="card">
+      <h3>TA (RSI/EMA/MACD)</h3>
+      <div class
