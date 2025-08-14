@@ -1,350 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Ghost Sniper AI</title>
-<style>
-:root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#9cf381;--warn:#ffd166}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#fff;font:16px/1.35 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
-header{display:flex;gap:12px;align-items:baseline;padding:16px 20px;border-bottom:1px solid #1f2a40}
-h1{margin:0;font-size:22px}
-.sub{color:var(--muted);font-size:13px}
-.wrap{max-width:1200px;margin:18px auto;padding:0 16px;display:grid;gap:16px}
-.grid{display:grid;grid-template-columns:1fr;gap:16px}
-@media(min-width:1000px){.grid{grid-template-columns:1.2fr .8fr}}
-.card{background:var(--card);border:1px solid #1f2a40;border-radius:10px;padding:16px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-label{font-size:13px;color:var(--muted)}
-input,select{background:#0b1326;border:1px solid #1f2a40;border-radius:8px;color:#fff;padding:10px 12px}
-button{appearance:none;border:none;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer}
-.pri{background:#2166ff}.sec{background:#2a3957}.ghost{background:transparent;border:1px solid #2a3957}
-.ok{color:var(--ok)}.muted{color:var(--muted)}.warn{color:var(--warn)}
-pre{background:#0a0f1d;border:1px solid #1f2a40;border-radius:8px;padding:12px;overflow:auto;max-height:280px}
-a{color:#9cd1ff;text-decoration:none}a:hover{text-decoration:underline}
-.badge{display:inline-block;border:1px solid #2a3957;padding:2px 8px;border-radius:999px;font-size:12px}
-hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
-</style>
-<script defer src="https://unpkg.com/@solana/web3.js@1.91.1/lib/index.iife.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ghost Sniper AI</title>
+
+  <style>
+    :root{ --bg:#0b1220; --card:#0f1a33; --muted:#9fb5d9; --ok:#7dffa7; }
+    *{ box-sizing:border-box }
+    body{ margin:0; background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif }
+    header{ display:flex; gap:12px; align-items:baseline; padding:18px 20px; border-bottom:1px solid #1f2a40 }
+    h1{ margin:0; font-size:22px }
+    .sub{ color:var(--muted); font-size:13px }
+    .wrap{ max-width:1200px; margin:18px auto; padding:0 16px }
+    @media (min-width:1000px){
+      .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px }
+    }
+    .card{ background:var(--card); border:1px solid #1f2a40; border-radius:10px; padding:16px; margin-bottom:16px }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    label{ font-size:13px; color:var(--muted) }
+    input, select{
+      background:#0b1326; border:1px solid #1f2a40; color:#fff;
+      padding:10px 12px; border-radius:8px; min-width:0;
+    }
+    input[readonly]{ opacity:.7 }
+    button{
+      appearance:none; border:none; border-radius:8px; padding:10px 14px; color:#fff; cursor:pointer;
+    }
+    button.pri{ background:#2166ff }
+    button.sec{ background:#2a3957 }
+    button:disabled{ opacity:.55; cursor:not-allowed }
+    .ok{ color:var(--ok) }
+    .muted{ color:var(--muted) }
+    pre{
+      background:#0a0f1d; border:1px solid #1f2a40; border-radius:8px;
+      padding:10px; margin:0; color:#9cd1ff; overflow:auto; white-space:pre-wrap;
+    }
+    .badge{ display:inline-block; background:#213a72; border:1px solid #2b4c93; padding:2px 8px; border-radius:999px; font-size:12px }
+    hr{ border:none; border-top:1px solid #1f2a40; margin:14px 0 }
+    a{ color:#9cd1ff; text-decoration:none } a:hover{ text-decoration:underline }
+  </style>
 </head>
+
 <body>
-<header>
-  <h1>👻 Ghost Sniper</h1>
-  <div class="sub">Connect → intel → quote → buy/sell. Use tiny sizes while learning.</div>
-</header>
+  <header>
+    <h1>👻 Ghost Sniper</h1>
+    <div class="sub">Connect → intel → quote → buy/sell. No keys on server.</div>
+  </header>
 
-<div class="wrap">
+  <div class="wrap">
 
-  <div class="grid">
-    <!-- Left: Trading + Intel -->
+    <!-- ───────────────────────── LEFT/RIGHT GRID ───────────────────────── -->
+    <div class="grid">
+
+      <!-- LEFT COLUMN -->
+      <section class="card">
+        <h2>🧠 Train from a video link</h2>
+        <div class="row">
+          <input id="learnUrl" placeholder="Paste YouTube or TikTok URL" style="flex:1" />
+          <button id="ingestBtn" class="pri">Analyze</button>
+        </div>
+        <hr/>
+        <pre id="learnOut" class="muted" style="max-height:280px;"></pre>
+        <div class="muted" style="margin-top:8px">
+          Tip: On iPhone, you can paste shorts/reels URLs too. The server extracts captions/transcripts, summarizes,
+          and caches them so you can ask the AI about the video.
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN (placeholders you can fill as you go) -->
+      <section class="card">
+        <h2>⚙️ Wallet & Quick Actions</h2>
+        <div class="row">
+          <button class="sec" id="openPhantom">Open Phantom (iOS helper)</button>
+          <button class="pri" id="connectPhantom">Connect Phantom</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label>Address</label>
+          <input id="phantomAddr" readonly style="flex:1" placeholder="Not connected" />
+        </div>
+        <hr/>
+        <div class="row">
+          <label>Amount (SOL)</label><input id="amt" type="number" step="0.0001" value="0.01" style="width:120px" />
+          <label>Slippage %</label><input id="slip" type="number" step="0.1" value="1" style="width:100px" />
+          <label>Priority (SOL)</label><input id="fee" type="number" step="0.0001" value="0.0005" style="width:120px" />
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label>Pool</label>
+          <select id="pool">
+            <option value="pumpfun">Pump.fun</option>
+            <option value="raydium">Raydium</option>
+            <option value="meteora">Meteora</option>
+          </select>
+          <button class="pri" id="snipeBtn">Snipe</button>
+          <button class="sec" id="sellBtn">Sell</button>
+        </div>
+        <pre id="txOut" class="muted" style="margin-top:10px;max-height:220px;"></pre>
+      </section>
+
+    </div>
+
+    <!-- Live console / logs -->
     <section class="card">
-      <h2>Trade (Solana via Jupiter)</h2>
-
-      <!-- Wallets -->
-      <div class="row">
-        <button class="pri" id="connectPhantom">Connect Phantom</button>
-        <button class="ghost" id="openPhantom" style="display:none">Open in Phantom (iPhone)</button>
-        <span id="phantomAddr" class="muted"></span>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="sec" id="connectMM">Connect MetaMask</button>
-        <span id="mmAddr" class="muted"></span>
-      </div>
-
-      <hr/>
-
-      <!-- Sniper controls -->
-      <div class="row">
-        <div style="display:grid;gap:6px;min-width:260px">
-          <label>Input Mint (spend) — WSOL:</label>
-          <input id="inMint" value="So11111111111111111111111111111111111111112">
-        </div>
-        <div style="display:grid;gap:6px;min-width:260px">
-          <label>Output Mint (target)</label>
-          <input id="outMint" placeholder="Paste token mint">
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:6px">
-        <div style="display:grid;gap:6px;min-width:160px">
-          <label>Amount in SOL (we convert to lamports)</label>
-          <input id="amtSol" placeholder="0.01">
-        </div>
-        <div style="display:grid;gap:6px;min-width:160px">
-          <label>Slippage (bps)</label>
-          <input id="slip" value="50">
-        </div>
-        <div style="display:grid;gap:6px;min-width:180px">
-          <label>Priority Fee (lamports)</label>
-          <input id="prio" placeholder="auto">
-        </div>
-        <button class="ghost" id="q1">+0.01</button>
-        <button class="ghost" id="q2">+0.05</button>
-        <button class="ghost" id="q3">+0.1</button>
-      </div>
-
-      <div class="row" style="margin-top:8px">
-        <button class="sec" id="btnQuote">Quote</button>
-        <button class="pri" id="btnBuy">Buy</button>
-        <button class="ghost" id="btnSell">Sell</button>
-        <span class="badge">Fast path</span>
-      </div>
-
-      <pre id="quoteOut" style="margin-top:10px"></pre>
-      <pre id="walletLog" style="margin-top:10px"></pre>
+      <h2>📜 Console</h2>
+      <pre id="log" style="max-height:260px;"></pre>
     </section>
 
-    <!-- Right: Watch + Chart + Intel -->
-    <section class="card">
-      <h2>Watchlist & Chart</h2>
-      <div class="row">
-        <label>Pair Address (for chart)</label>
-        <input id="pairAddr" placeholder="dexscreener pair address (solana)">
-        <button class="sec" id="loadChart">Load</button>
-      </div>
-      <div id="chartWrap" style="margin-top:8px">
-        <div class="muted">Paste a Dexscreener pair and click Load to embed chart.</div>
-      </div>
-
-      <hr/>
-
-      <h3>Intel (Dexscreener + CoinGecko)</h3>
-      <div class="row">
-        <label>Search</label>
-        <input id="intelQ" placeholder="token address / name…" style="min-width:260px">
-        <button class="sec" id="intelGo">Lookup</button>
-      </div>
-      <pre id="intelOut"></pre>
-    </section>
   </div>
 
-  <!-- TA + AI Coach -->
-  <section class="card">
-    <h2>Technical Analysis + AI Coach</h2>
-    <div class="row">
-      <div style="display:grid;gap:6px;min-width:200px">
-        <label>Pair address</label>
-        <input id="taPair" placeholder="dexscreener pair address">
-      </div>
-      <div style="display:grid;gap:6px;min-width:160px">
-        <label>Timeframe</label>
-        <select id="taTf">
-          <option>1m</option><option selected>5m</option>
-          <option>15m</option><option>1h</option><option>4h</option><option>1d</option>
-        </select>
-      </div>
-      <button class="sec" id="taGo">Get Candles</button>
-      <button class="pri" id="coachGo">Ask AI Coach</button>
-    </div>
-    <pre id="taOut" style="margin-top:8px"></pre>
-    <pre id="coachOut" style="margin-top:8px"></pre>
-  </section>
+  <!-- Minimal Phantom helper (optional to keep) -->
+  <script defer src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
 
-</div>
+  <!-- Page scripts -->
+  <script>
+    // ───────── Helper: append to console
+    const $ = (id)=>document.getElementById(id);
+    function logLine(msg){ const el=$('log'); el.textContent += (msg + '\\n'); el.scrollTop = el.scrollHeight; }
 
-<script>
-const $ = id => document.getElementById(id);
-const log = (el, obj) => el.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    // ───────── Train from link (YouTube/TikTok → /api/ingest)
+    async function ingestFromLink() {
+      const btn = $('ingestBtn');
+      const url = $('learnUrl').value.trim();
+      const out = $('learnOut');
+      if (!url) { out.textContent = "Paste a YouTube or TikTok link."; return; }
+      btn.disabled = true; out.textContent = "Fetching & analyzing…";
+      try {
+        const r = await fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          out.textContent = "Error: " + (data.error || "unknown");
+          logLine("Ingest error: " + JSON.stringify(data));
+        } else {
+          out.textContent =
+            `Provider: ${data.provider}\\nTranscript chars: ${data.chars}\\n\\n` +
+            data.analysis;
+          logLine("Ingest ok (" + data.provider + "): " + data.chars + " chars");
+        }
+      } catch (e) {
+        out.textContent = "Error: " + e;
+        logLine("Ingest exception: " + e);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    $('ingestBtn').addEventListener('click', ingestFromLink);
 
-// ===== Wallets =====
-const walletLog = $('walletLog');
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-
-// Phantom
-(function initPhantom(){
-  const btn = $('connectPhantom');
-  const openBtn = $('openPhantom');
-  const addr = $('phantomAddr');
-  const hasPhantom = !!(window.phantom && window.phantom.solana);
-  const hasSolana = !!window.solana;
-
-  if (isIOS && !(hasPhantom || hasSolana)) {
-    openBtn.style.display = 'inline-block';
-    const here = encodeURIComponent(location.href.replace(/^http:/,'https:'));
-    openBtn.onclick = () => {
-      location.href = `https://phantom.app/ul/browse/${here}`;
-      setTimeout(()=> location.href = `phantom://browse/${here}`, 600);
+    // ───────── Phantom quick-connect helpers (non-blocking; optional)
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (isIOS) $('openPhantom').style.display = 'inline-block';
+    $('openPhantom').onclick = () => {
+      // Deep link opens Phantom app where the dApp browser can see window.solana
+      location.href = 'https://phantom.app/ul/browse/ghost-sniper-ai-production.up.railway.app';
     };
-  }
-  btn.onclick = async () => {
-    try{
-      const provider = window.phantom?.solana || window.solana;
-      if (!provider) return log(walletLog,'Phantom not injected. Use “Open in Phantom” on iPhone.');
-      const resp = await provider.connect({ onlyIfTrusted:false });
-      const base58 = resp.publicKey?.toBase58 ? resp.publicKey.toBase58() : String(resp.publicKey);
-      $('phantomAddr').innerHTML = `<span class="ok">Connected:</span> ${base58}`;
-      log(walletLog, { phantom: base58 });
-      window.__PHANTOM = provider;
-      window.__PHANTOM_ADDR = base58;
-    }catch(e){ log(walletLog,{ phantom_error:String(e) }); }
-  };
-})();
 
-// MetaMask
-(function initMM(){
-  $('connectMM').onclick = async () => {
-    try{
-      if (!window.ethereum) return log(walletLog,'MetaMask not found.');
-      const accounts = await window.ethereum.request({ method:'eth_requestAccounts' });
-      $('mmAddr').innerHTML = `<span class="ok">Connected:</span> ${accounts[0]}`;
-      const chainId = await window.ethereum.request({ method:'eth_chainId' });
-      log(walletLog, { metamask: accounts, chainId });
-    }catch(e){ log(walletLog,{ mm_error:String(e) }); }
-  };
-})();
-
-// Quick-size buttons
-['q1','q2','q3'].forEach((id,i)=>{
-  $(id).onclick = () => {
-    const add = [0.01,0.05,0.1][i];
-    const cur = parseFloat($('amtSol').value || '0') || 0;
-    $('amtSol').value = (cur + add).toFixed(3);
-  };
-});
-
-// Helpers
-const SOL_TO_LAMPORTS = sol => Math.round(parseFloat(sol) * 1e9);
-async function getQuote({inputMint, outputMint, amount, slippageBps}){
-  const url = new URL('/api/quote', location.origin);
-  url.searchParams.set('inputMint', inputMint);
-  url.searchParams.set('outputMint', outputMint);
-  url.searchParams.set('amount', String(amount));
-  url.searchParams.set('slippageBps', String(slippageBps));
-  const r = await fetch(url);
-  return r.json();
-}
-async function buildSwapTx({route, userPublicKey, prioritizationFeeLamports}){
-  const r = await fetch('/api/swap',{
-    method:'POST', headers:{'content-type':'application/json'},
-    body: JSON.stringify({ route, userPublicKey, prioritizationFeeLamports })
-  });
-  return r.json();
-}
-
-$('btnQuote').onclick = async () => {
-  const inputMint = $('inMint').value.trim();
-  const outputMint = $('outMint').value.trim();
-  const sol = $('amtSol').value.trim();
-  const amount = SOL_TO_LAMPORTS(sol || '0');
-  const slippageBps = $('slip').value.trim() || '50';
-  if (!inputMint || !outputMint || !amount) return log($('quoteOut'),'Missing fields.');
-  try{
-    const q = await getQuote({ inputMint, outputMint, amount, slippageBps });
-    log($('quoteOut'), q);
-    window.__LAST_QUOTE = q;
-  }catch(e){ log($('quoteOut'), { error:String(e) }); }
-};
-
-async function doSwap(isSell=false){
-  let inputMint = $('inMint').value.trim();
-  let outputMint = $('outMint').value.trim();
-  const sol = $('amtSol').value.trim();
-  let amount = SOL_TO_LAMPORTS(sol || '0');
-  const slippageBps = $('slip').value.trim() || '50';
-  const prioritizationFeeLamports = $('prio').value.trim() || 'auto';
-  if (isSell) { const t=inputMint; inputMint=outputMint; outputMint=t; }
-  if (!window.__PHANTOM_ADDR || !window.__PHANTOM) return log($('quoteOut'),'Connect Phantom first.');
-  const q = await getQuote({ inputMint, outputMint, amount, slippageBps });
-  if (!q?.data?.[0]) return log($('quoteOut'), { error: 'No route' });
-  const route = q.data[0];
-  const built = await buildSwapTx({ route, userPublicKey: window.__PHANTOM_ADDR, prioritizationFeeLamports });
-  if (!built?.swapTransaction) return log($('quoteOut'), { error:'No tx from Jupiter', detail:built });
-  try{
-    const txBuf = Buffer.from(built.swapTransaction, 'base64');
-    const signed = await window.__PHANTOM.signAndSendTransaction(txBuf);
-    log($('quoteOut'), { sent: signed });
-  }catch(e){ log($('quoteOut'), { sign_send_error:String(e) }); }
-}
-$('btnBuy').onclick = () => doSwap(false);
-$('btnSell').onclick = () => doSwap(true);
-
-// Intel
-$('intelGo').onclick = async () => {
-  const q = $('intelQ').value.trim();
-  if (!q) return;
-  try{
-    const [dex,cg] = await Promise.all([
-      fetch(`/api/dexscreener?q=${encodeURIComponent(q)}`).then(r=>r.json()),
-      fetch(`/api/coingecko-price?ids=solana,ethereum,bitcoin`).then(r=>r.json())
-    ]);
-    log($('intelOut'), { dex, coingecko: cg });
-  }catch(e){ log($('intelOut'), { error:String(e) }); }
-};
-
-// Chart embed
-$('loadChart').onclick = () => {
-  const p = $('pairAddr').value.trim();
-  const wrap = $('chartWrap');
-  if (!p) return (wrap.innerHTML = '<div class="warn">Enter a pair.</div>');
-  // Dexscreener embed:
-  wrap.innerHTML = `<iframe src="https://dexscreener.com/solana/${encodeURIComponent(p)}?embed=1&theme=dark"
-    style="width:100%;height:420px;border:0;border-radius:8px;"></iframe>`;
-};
-
-// ===== TA & AI Coach =====
-function ema(values, period){
-  const k = 2/(period+1); let emaPrev = values[0]; const out=[emaPrev];
-  for (let i=1;i<values.length;i++){ emaPrev = values[i]*k + emaPrev*(1-k); out.push(emaPrev); }
-  return out;
-}
-function rsi(values, period=14){
-  let gains=0,losses=0;
-  for (let i=1;i<=period;i++){ const diff=values[i]-values[i-1]; if (diff>=0) gains+=diff; else losses-=diff; }
-  let rs = (gains/period)/((losses||1)/period);
-  const result = [null, ...Array(period-1).fill(null), 100 - 100/(1+rs)];
-  for (let i=period+1;i<values.length;i++){
-    const diff=values[i]-values[i-1];
-    const gain = diff>0?diff:0, loss = diff<0?-diff:0;
-    gains = (gains*(period-1)+gain)/period;
-    losses = (losses*(period-1)+loss)/period;
-    rs = gains/((losses)||1e-9);
-    result.push(100 - 100/(1+rs));
-  }
-  return result;
-}
-
-let __TA_SNAPSHOT = null;
-
-$('taGo').onclick = async () => {
-  const pair = $('taPair').value.trim();
-  const tf = $('taTf').value;
-  if (!pair) return log($('taOut'),'Enter pair address.');
-  try{
-    const data = await fetch(`/api/dexscreener-candles?timeframe=${encodeURIComponent(tf)}&pairAddress=${encodeURIComponent(pair)}`).then(r=>r.json());
-    const candles = data?.candles || data?.data || [];
-    if (!candles.length) return log($('taOut'), { error: 'No candles' });
-
-    // Normalize fields: each candle has t,o,h,l,c,v
-    const closes = candles.map(c=> Number(c.c || c.close || 0));
-    const ema20 = ema(closes, 20);
-    const ema50 = ema(closes, 50);
-    const rsi14 = rsi(closes, 14);
-    const last = candles[candles.length-1];
-    __TA_SNAPSHOT = {
-      timeframe: tf,
-      pair,
-      last,
-      lastClose: closes[closes.length-1],
-      ema20: ema20[ema20.length-1],
-      ema50: ema50[ema50.length-1],
-      rsi14: rsi14[rsi14.length-1],
-      emaSlope20: ema20[ema20.length-1] - ema20[ema20.length-5],
-      emaSlope50: ema50[ema50.length-1] - ema50[ema50.length-5],
-      samples: candles.slice(-50)
+    $('connectPhantom').onclick = async () => {
+      try {
+        if (!(window.solana && window.solana.isPhantom)) {
+          logLine('Phantom not injected. On iPhone, tap "Open Phantom" and use its browser.');
+          alert('Phantom not detected. If you are on iPhone, open this site inside the Phantom app.');
+          return;
+        }
+        const resp = await window.solana.connect();
+        $('phantomAddr').value = resp.publicKey.toString();
+        logLine('Phantom connected: ' + resp.publicKey.toString());
+      } catch (e) {
+        logLine('Phantom connect error: ' + e);
+        alert('Connect error: ' + e.message);
+      }
     };
-    log($('taOut'), __TA_SNAPSHOT);
-  }catch(e){ log($('taOut'), { error:String(e) }); }
-};
 
-$('coachGo').onclick = async () => {
-  if (!__TA_SNAPSHOT) return log($('coachOut'),'Run "Get Candles" first.');
-  try{
-    const r = await fetch('/api/ai-coach',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ snapshot: __TA_SNAPSHOT }) });
-    const j = await r.json();
-    log($('coachOut'), j);
-  }catch(e){ log($('coachOut'), { error:String(e) }); }
-};
-</script>
+    // ───────── Sniping buttons (wire these to your backend routes when ready)
+    $('snipeBtn').onclick = async () => {
+      $('txOut').textContent = 'Pretend snipe… (wire to /api/snipe when ready)';
+      logLine('Snipe clicked');
+    };
+    $('sellBtn').onclick = async () => {
+      $('txOut').textContent = 'Pretend sell… (wire to /api/sell when ready)';
+      logLine('Sell clicked');
+    };
+  </script>
 </body>
 </html>
