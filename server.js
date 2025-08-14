@@ -1,253 +1,366 @@
-// server.js — Ghost Sniper AI (Node 22 / ESM)
-// Backend provides: static hosting, health, DexScreener helpers,
-// Jupiter v6 quote/swap proxies, SOL price, token list cache, and URL AI ingest.
+// server.js — Ghost Sniper AI (3-bot stack)
+// Node 22 compatible (ESM). Paper mode ON by default.
 
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
+import OpenAI from "openai";
 
-// Node 18+ has global fetch; no node-fetch needed.
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-/* ---------- Basics ---------- */
-app.use(cors()); // tighten later with your domain
+app.use(cors());
 app.use(express.json({ limit: "1mb" }));
-app.use((req, _res, next) => {
-  console.log(new Date().toISOString(), req.method, req.url);
-  next();
-});
 
-/* ---------- Static hosting ---------- */
-const PUBLIC_DIR = fs.existsSync(path.join(__dirname, "public"))
-  ? path.join(__dirname, "public")
-  : null;
-if (PUBLIC_DIR) app.use(express.static(PUBLIC_DIR));
+// ---------- Config
+const PORT = process.env.PORT || 3000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const LIVE_TRADING = String(process.env.LIVE_TRADING || "false").toLowerCase() === "true";
 
-/* ---------- Health ---------- */
-app.get("/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
+// Optional RPCs (required for live mode)
+const ALCHEMY_MAINNET = process.env.ALCHEMY_MAINNET || ""; // EVM mainnet (for 0x/uniswap)
+const SOLANA_RPC = process.env.SOLANA_RPC || ""; // e.g. https://api.mainnet-beta.solana.com
 
-/* ---------- Jupiter v6: Quote ---------- */
-app.get("/api/jup/quote", async (req, res) => {
-  try {
-    const url = new URL("https://quote-api.jup.ag/v6/quote");
-    const pass = [
-      "inputMint",
-      "outputMint",
-      "amount",          // integer, smallest units
-      "slippageBps",     // integer bps
-      "feeBps",
-      "onlyDirectRoutes",
-      "preferDex",
-      "asLegacyTransaction"
-    ];
-    pass.forEach((k) => {
-      if (req.query[k] != null) url.searchParams.set(k, String(req.query[k]));
-    });
-    const r = await fetch(url.toString());
-    const j = await r.json();
-    res.json(j);
-  } catch (e) {
-    console.error("quote_error", e);
-    res.status(500).json({ error: "quote_error", detail: String(e) });
+// ---------- OpenAI client (for chat & URL intel)
+const ai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+
+// ---------- Web server: static UI
+const PUBLIC_DIR = path.join(__dirname, "public");
+app.use(express.static(PUBLIC_DIR));
+
+// ---------- WebSocket: live logs/feeds
+const wss = new WebSocketServer({ noServer: true });
+const clients = new Set();
+function push(event, payload) {
+  const msg = JSON.stringify({ event, time: Date.now(), payload });
+  for (const ws of clients) {
+    try { ws.send(msg); } catch {}
   }
-});
-
-/* ---------- Jupiter v6: Swap (serialized tx; you sign on client) ---------- */
-app.post("/api/jup/swap", async (req, res) => {
-  try {
-    const {
-      quoteResponse,
-      userPublicKey,
-      wrapAndUnwrapSol = true,
-      prioritizationFeeLamports = "auto",
-      dynamicComputeUnitLimit = true
-    } = req.body || {};
-
-    if (!quoteResponse || !userPublicKey) {
-      return res.status(400).json({ error: "missing_swap_fields" });
-    }
-
-    const payload = {
-      quoteResponse,
-      userPublicKey,
-      wrapAndUnwrapSol,
-      dynamicComputeUnitLimit,
-      prioritizationFeeLamports // "auto" or number
-    };
-
-    const r = await fetch("https://quote-api.jup.ag/v6/swap", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const j = await r.json();
-    res.json(j);
-  } catch (e) {
-    console.error("swap_error", e);
-    res.status(500).json({ error: "swap_error", detail: String(e) });
-  }
-});
-
-/* ---------- DexScreener: latest SOL pairs feed ---------- */
-app.get("/api/dexscreener/new", async (_req, res) => {
-  try {
-    // Broad “solana” search then sort newest first.
-    const r = await fetch("https://api.dexscreener.com/latest/dex/search?q=solana");
-    const j = await r.json();
-    const items = (j?.pairs || [])
-      .filter((p) => p.chainId === "solana")
-      .sort((a, b) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0))
-      .slice(0, 50)
-      .map((p) => ({
-        baseSymbol: p.baseToken?.symbol,
-        baseAddress: p.baseToken?.address,
-        quoteSymbol: p.quoteToken?.symbol,
-        dexId: p.dexId,
-        url: p.url, // includes pairAddress in path
-        fdv: Number(p.fdv || 0),
-        liquidityUsd: Number(p.liquidity?.usd || 0),
-        pairCreatedAt: p.pairCreatedAt || null,
-        labels: p.labels || []
-      }));
-    res.json({ items });
-  } catch (e) {
-    console.error("dex_new_error", e);
-    res.status(500).json({ error: "dex_new_error", detail: String(e) });
-  }
-});
-
-/* ---------- DexScreener: price by mint (best SOL pair) ---------- */
-app.get("/api/dex/price", async (req, res) => {
-  try {
-    const { token } = req.query;
-    if (!token) return res.status(400).json({ error: "no_token" });
-    const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${token}`);
-    const j = await r.json();
-    const pairs = (j?.pairs || []).filter((p) => p.chainId === "solana");
-    if (!pairs.length) return res.json({ priceUsd: null });
-
-    // Pick highest-liquidity SOL pair
-    pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-    const p = pairs[0];
-    res.json({
-      priceUsd: Number(p.priceUsd || 0),
-      url: p.url,
-      pairAddress: p.pairAddress,
-      liquidityUsd: p.liquidity?.usd || 0,
-      baseSymbol: p.baseToken?.symbol,
-      baseAddress: p.baseToken?.address,
-      quoteSymbol: p.quoteToken?.symbol
-    });
-  } catch (e) {
-    console.error("dex_price_error", e);
-    res.status(500).json({ error: "dex_price_error", detail: String(e) });
-  }
-});
-
-/* ---------- Token list (Jupiter cache) ---------- */
-let _tokenList = null;
-let _tokenListTime = 0;
-async function getJupTokens() {
-  const now = Date.now();
-  if (_tokenList && now - _tokenListTime < 5 * 60 * 1000) return _tokenList;
-  const r = await fetch("https://cache.jup.ag/tokens");
-  _tokenList = await r.json();
-  _tokenListTime = now;
-  return _tokenList;
+  console.log(`[WS] ${event}`, payload);
 }
-app.get("/api/jup/token", async (req, res) => {
+
+// attach WS to same HTTP server later
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Ghost Sniper AI listening on ${PORT} | LIVE_TRADING=${LIVE_TRADING}`);
+});
+
+// Upgrade handler
+server.on("upgrade", (req, socket, head) => {
+  if (req.url !== "/ws") return socket.destroy();
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    clients.add(ws);
+    ws.on("close", () => clients.delete(ws));
+    ws.send(JSON.stringify({ event: "hello", payload: { ok: true, LIVE_TRADING } }));
+  });
+});
+
+// ---------- Tiny in-memory bot registry
+const bots = new Map(); // id -> bot
+
+// Util: delay
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ========== Strategy / Signal abstractions ==========
+
+class BaseBot {
+  constructor(id, opts) {
+    this.id = id;
+    this.opts = {
+      label: opts.label || id,
+      chain: opts.chain || "paper",
+      pool: opts.pool || "paper",
+      amount: Number(opts.amount || 0.01),
+      slippage: Number(opts.slippage || 1),
+      priorityFee: Number(opts.priorityFee || 0),
+      paper: !LIVE_TRADING || !!opts.paper,
+      sources: opts.sources || ["dexscreener", "coingecko", "pumpfun"],
+      minMcap: Number(opts.minMcap || 0),
+      minLiquidity: Number(opts.minLiquidity || 0),
+      maxAgeSec: Number(opts.maxAgeSec || 900)
+    };
+    this._running = false;
+  }
+
+  async start() {
+    if (this._running) return;
+    this._running = true;
+    push("bot:start", { id: this.id, opts: this.opts });
+    this.loop().catch(err => {
+      push("bot:error", { id: this.id, error: String(err?.message || err) });
+      this._running = false;
+    });
+  }
+
+  async stop() {
+    this._running = false;
+    push("bot:stop", { id: this.id });
+  }
+
+  async loop() {
+    // Overridden by child
+  }
+
+  async trade({ side, token, amount, extra }) {
+    if (this.opts.paper) {
+      // simulate fill instantly
+      const price = extra?.price || Math.max(0.000001, (Math.random() * 0.005));
+      const qty = side === "buy" ? amount / price : amount; // very rough
+      push("trade:paper", { id: this.id, side, token, amount, price, qty, chain: this.opts.chain });
+      return { ok: true, paper: true, txid: `paper_${Date.now()}` };
+    } else {
+      // Live trade stubs per chain
+      if (this.opts.chain === "sol") return this.tradeSolana({ side, token, amount, extra });
+      if (this.opts.chain === "evm") return this.tradeEvm({ side, token, amount, extra });
+      throw new Error("Unsupported chain for live mode");
+    }
+  }
+
+  // ---- Live Solana via Jupiter (client must sign; server builds swap tx b64)
+  async tradeSolana({ side, token, amount, extra }) {
+    // NOTE: For true live, build swap tx with Jupiter API, return tx b64 to client for signing with Phantom.
+    // Here we only log + return stub (you’ll wire to front-end signer).
+    push("trade:live_stub", { id: this.id, chain: "sol", side, token, amount });
+    return { ok: true, needsClientSign: true, provider: "jupiter", b64: null };
+  }
+
+  // ---- Live EVM via 0x swap API (client must send tx with MetaMask)
+  async tradeEvm({ side, token, amount, extra }) {
+    push("trade:live_stub", { id: this.id, chain: "evm", side, token, amount });
+    return { ok: true, needsClientSign: true, provider: "0x", txData: null };
+  }
+}
+
+// Quick “signal” helper — polls a list endpoint and yields fresh tokens once
+async function* pollJsonList(url, key = "items", periodMs = 4000) {
+  const seen = new Set();
+  while (true) {
+    try {
+      const r = await fetch(url);
+      const data = await r.json();
+      const arr = (data?.[key] ?? data ?? []);
+      for (const item of arr) {
+        const id = item.address || item.tokenAddress || item.symbol || JSON.stringify(item);
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          yield item;
+        }
+      }
+    } catch (e) {
+      // swallow and continue
+    }
+    await wait(periodMs);
+  }
+}
+
+// ========== Bot 1: Solana “PumpFun watcher” (signals) ==========
+class SolPumpFunBot extends BaseBot {
+  constructor(id, opts = {}) {
+    super(id, { chain: "sol", pool: "pumpfun", ...opts });
+  }
+  async loop() {
+    // This is a **signal** example. Replace with your preferred feed or on-chain listener.
+    // Demo: use DexScreener Solana feed just for fresh tokens (approximate).
+    const feed = "https://api.dexscreener.com/latest/dex/tokens/solana";
+    for await (const token of pollJsonList(feed, "pairs", 6000)) {
+      if (!this._running) break;
+
+      const addr = token.baseToken?.address || token.pairAddress || token.address;
+      const ageSec = Number(token.pairCreatedAt ? (Date.now() - token.pairCreatedAt) / 1000 : 9999);
+      const liq = Number(token.liquidity?.usd || 0);
+      const mcap = Number(token.fdv || token.marketCap || 0);
+
+      if (!addr) continue;
+      if (ageSec > this.opts.maxAgeSec) continue;
+      if (liq < this.opts.minLiquidity) continue;
+      if (mcap < this.opts.minMcap) continue;
+
+      push("signal", { bot: this.id, source: "dexscreener", addr, mcap, liq, ageSec });
+      // BUY once per new signal (paper by default)
+      await this.trade({ side: "buy", token: addr, amount: this.opts.amount, extra: { price: token.priceUsd } });
+    }
+  }
+}
+
+// ========== Bot 2: EVM Sniper (0x aggregator signals) ==========
+class EvmZeroXBot extends BaseBot {
+  constructor(id, opts = {}) {
+    super(id, { chain: "evm", pool: "uniswap", ...opts });
+  }
+  async loop() {
+    // Example: poll top trending on DexScreener EVM (broad)
+    const feed = "https://api.dexscreener.com/latest/dex/tokens/ethereum";
+    for await (const token of pollJsonList(feed, "pairs", 7000)) {
+      if (!this._running) break;
+      const addr = token.baseToken?.address;
+      if (!addr) continue;
+      const mcap = Number(token.fdv || 0);
+      const liq = Number(token.liquidity?.usd || 0);
+      if (mcap < this.opts.minMcap || liq < this.opts.minLiquidity) continue;
+
+      push("signal", { bot: this.id, source: "dexscreener", addr, mcap, liq });
+      await this.trade({ side: "buy", token: addr, amount: this.opts.amount, extra: { price: token.priceUsd } });
+    }
+  }
+}
+
+// ========== Bot 3: PaperSim (training) ==========
+class PaperSimBot extends BaseBot {
+  constructor(id, opts = {}) {
+    super(id, { chain: "paper", pool: "sim", paper: true, ...opts });
+  }
+  async loop() {
+    // Generate synthetic signals to practice AI prompts & buttons
+    while (this._running) {
+      const addr = `SIM_${Math.random().toString(36).slice(2, 8)}`;
+      push("signal", { bot: this.id, source: "sim", addr, mcap: 120000 + Math.random()*1e6, liq: 10000 + Math.random()*100000 });
+      await this.trade({ side: "buy", token: addr, amount: this.opts.amount });
+      await wait(4000 + Math.random() * 4000);
+      await this.trade({ side: "sell", token: addr, amount: this.opts.amount * (0.98 + Math.random()*0.06) });
+      await wait(3000);
+    }
+  }
+}
+
+// ---------- Bot management endpoints
+function ensureBot(id, kind, opts) {
+  if (bots.has(id)) return bots.get(id);
+  let bot;
+  if (kind === "sol-pumpfun") bot = new SolPumpFunBot(id, opts);
+  else if (kind === "evm-0x") bot = new EvmZeroXBot(id, opts);
+  else bot = new PaperSimBot(id, opts);
+  bots.set(id, bot);
+  return bot;
+}
+
+app.post("/api/bots/start", async (req, res) => {
   try {
-    const { mint } = req.query;
-    const list = await getJupTokens();
-    const t = list.find((x) => x.address === mint);
-    if (!t) return res.json({ found: false });
-    res.json({ found: true, decimals: t.decimals, symbol: t.symbol, name: t.name });
+    const { id, kind, opts } = req.body || {};
+    const bot = ensureBot(id || kind || `bot_${Date.now()}`, kind || "paper", opts || {});
+    await bot.start();
+    return res.json({ ok: true, id: bot.id, opts: bot.opts });
   } catch (e) {
-    res.status(500).json({ error: "jup_token_error", detail: String(e) });
+    return res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
 
-/* ---------- SOL spot USD ---------- */
-app.get("/api/price/sol", async (_req, res) => {
+app.post("/api/bots/stop", async (req, res) => {
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
-    const j = await r.json();
-    res.json({ usd: j?.solana?.usd ?? null });
+    const { id } = req.body || {};
+    const bot = bots.get(id);
+    if (!bot) return res.status(404).json({ ok: false, error: "bot not found" });
+    await bot.stop();
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "sol_price_error", detail: String(e) });
+    return res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
 
-/* ---------- URL ingest + optional AI summarize ---------- */
-app.post("/api/ingest", async (req, res) => {
+app.get("/api/bots/list", (_req, res) => {
+  res.json({
+    ok: true,
+    bots: [...bots.values()].map(b => ({ id: b.id, opts: b.opts, running: b._running }))
+  });
+});
+
+// ---------- Chat AI (general + trading commands)
+app.post("/api/chat", async (req, res) => {
+  try {
+    if (!ai) return res.status(400).json({ ok: false, error: "OPENAI_API_KEY missing" });
+    const { messages = [], system = "" } = req.body || {};
+
+    const sys = system || `
+You are Ghost Sniper AI, a crisp trading assistant.
+- You can tell the user how to start/stop bots by calling the /api/bots endpoints.
+- When user says "snipe X on pump.fun", suggest: POST /api/bots/start {id:"sol1", kind:"sol-pumpfun", opts:{amount:X}}.
+- Never send private keys. Remind that LIVE_TRADING is off by default.
+`.trim();
+
+    const out = await ai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      messages: [{ role: "system", content: sys }, ...messages]
+    });
+
+    const text = out.choices?.[0]?.message?.content || "…";
+    push("chat", { from: "ai", text });
+    res.json({ ok: true, text });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ---------- URL intelligence (YouTube/TikTok oEmbed + summarize)
+app.post("/api/url-intel", async (req, res) => {
   try {
     const { url } = req.body || {};
-    if (!url) return res.status(400).json({ error: "no_url" });
+    if (!url) return res.status(400).json({ ok: false, error: "url missing" });
 
-    // best-effort page text (good for articles/YouTube/TikTok pages)
-    const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" } });
-    const html = await r.text();
-    const text = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 12000);
-
-    let summary = null;
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const { default: OpenAI } = await import("openai"); // lazy import
-        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const out = await client.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature: 0.3,
-          messages: [
-            { role: "system", content: "Summarize for a fast crypto sniper. 5–10 bullets, tickers/risks, concise." },
-            { role: "user", content: `URL: ${url}\n\nTEXT:\n${text}` }
-          ]
-        });
-        summary = out?.choices?.[0]?.message?.content || null;
-      } catch (e) {
-        console.warn("OpenAI summarize failed:", e.message);
+    // Light metadata via oEmbed endpoints
+    async function getOEmbed(u) {
+      // Try YouTube then TikTok
+      const yt = `https://www.youtube.com/oembed?url=${encodeURIComponent(u)}&format=json`;
+      const tk = `https://www.tiktok.com/oembed?url=${encodeURIComponent(u)}`;
+      for (const probe of [yt, tk]) {
+        try {
+          const r = await fetch(probe);
+          if (r.ok) return await r.json();
+        } catch {}
       }
+      return null;
     }
 
-    if (!summary) {
-      summary = "AI summarization unavailable. Preview:\n" +
-        text.slice(0, 500) + (text.length > 500 ? "…" : "");
+    const meta = await getOEmbed(url);
+    const bulleted = [
+      meta?.title ? `Title: ${meta.title}` : null,
+      meta?.author_name ? `Author: ${meta.author_name}` : null,
+      `Link: ${url}`
+    ].filter(Boolean).join("\n");
+
+    let summary = "AI summarization unavailable (no OPENAI_API_KEY).";
+    if (ai) {
+      const out = await ai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: "Summarize trading-relevant info in 6 bullets, then list 3 actionables." },
+          { role: "user", content: `Summarize this content (metadata only; no transcript):\n${bulleted}` }
+        ]
+      });
+      summary = out.choices?.[0]?.message?.content || summary;
     }
-    res.json({ ok: true, summary });
+
+    push("intel:url", { url, meta, summary });
+    res.json({ ok: true, meta, summary });
   } catch (e) {
-    console.error("ingest_error", e);
-    res.status(500).json({ error: "ingest_error", detail: String(e) });
+    res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
 
-/* ---------- SPA fallback ---------- */
+// ---------- Utility: Proxy quotes (e.g., Jupiter) — client can fetch to display
+app.get("/api/quote/jup", async (req, res) => {
+  try {
+    // Pass-through to Jupiter Quote v6 (safe GET)
+    const q = new URL("https://quote-api.jup.ag/v6/quote");
+    for (const [k, v] of Object.entries(req.query)) q.searchParams.set(k, v);
+    const r = await fetch(q.toString());
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ---------- Health
+app.get("/health", (_req, res) => res.json({ ok: true, LIVE_TRADING, bots: bots.size }));
+
+// ---------- Fallback to UI
 app.get("*", (_req, res) => {
-  if (PUBLIC_DIR) {
-    const idx = path.join(PUBLIC_DIR, "index.html");
-    if (fs.existsSync(idx)) return res.sendFile(idx);
-    return res.status(200).send("index.html not found — commit /public/index.html");
-  }
-  res.status(200).send("No /public folder found — create /public/index.html and redeploy.");
-});
-
-/* ---------- Start ---------- */
-app.listen(PORT, () => {
-  console.log(`🚀 Ghost Sniper running on port ${PORT}`);
-  // Warm the token cache (non-blocking)
-  getJupTokens().catch(() => {});
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
