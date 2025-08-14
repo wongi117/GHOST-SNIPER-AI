@@ -26,13 +26,11 @@
     hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
     .badge{display:inline-block;background:#132244;border:1px solid #1f2a40;border-radius:999px;padding:3px 8px;font-size:12px}
   </style>
-  <!-- Only needed if you later use web3.js; not required for this basic flow -->
-  <!-- <script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script> -->
 </head>
 <body>
   <header>
     <h1>👻 Ghost Sniper</h1>
-    <div class="sub">Connect → quote → sign &amp; send. You sign — no keys on server.</div>
+    <div class="sub">Connect → quote → sign & send. You sign — no keys on server.</div>
   </header>
 
   <div class="wrap grid">
@@ -68,7 +66,6 @@
 
         <label>Pair</label>
         <select id="pair" style="min-width:220px">
-          <!-- Popular quick pairs (you can extend) -->
           <option value="SOL-USDC">SOL → USDC</option>
           <option value="USDC-SOL">USDC → SOL</option>
         </select>
@@ -129,15 +126,13 @@
     });
 
     // ---------- Mint dictionary (quick presets) ----------
-    // Mainnet mints
     const MINTS = {
       SOL:  'So11111111111111111111111111111111111111112', // WSOL
       USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
     };
-
     function getPairMints(pair){
-      if(pair === 'SOL-USDC') return { inputMint: MINTS.SOL, outputMint: MINTS.USDC };
-      if(pair === 'USDC-SOL') return { inputMint: MINTS.USDC, outputMint: MINTS.SOL };
+      if(pair === 'SOL-USDC') return { inputMint: MINTS.SOL,  outputMint: MINTS.USDC };
+      if(pair === 'USDC-SOL') return { inputMint: MINTS.USDC, outputMint: MINTS.SOL  };
       throw new Error('Unsupported pair selection');
     }
 
@@ -148,13 +143,12 @@
         const { inputMint, outputMint } = getPairMints($('#pair').value);
         const amountSol = Number($('#amt').value || '0');
         if(!amountSol || amountSol <= 0) throw new Error('Enter amount');
-        // Convert to lamports if input is SOL
+
         let amount = amountSol;
         if(inputMint === MINTS.SOL){
-          amount = Math.round(amountSol * 1e9);
+          amount = Math.round(amountSol * 1e9);   // lamports
         } else {
-          // If the input is not SOL (e.g., USDC), you should change this to smallest unit for that mint (USDC=6dp)
-          amount = Math.round(amountSol * 1e6);
+          amount = Math.round(amountSol * 1e6);   // crude for USDC
         }
 
         const u = new URL('/api/jup/quote', location.origin);
@@ -193,11 +187,10 @@
         const txB64 = res?.swapTransaction;
         if(!txB64){ throw new Error('Bad swap response from server'); }
 
-        // Convert base64 -> Uint8Array for Phantom
         const txBytes = Uint8Array.from(atob(txB64), c => c.charCodeAt(0));
-
         log('Requesting Phantom to sign & send…');
-        // Most Phantom versions accept this shape:
+
+        // Phantom accepts { message: Uint8Array } for serialized
         const signed = await window.solana.signAndSendTransaction({ message: txBytes });
         const sig = signed?.signature || signed;
         log('✅ sent:', sig);
@@ -206,7 +199,7 @@
       }
     });
 
-    // ---------- Ingest (YouTube/TikTok) ----------
+    // ---------- Ingest (YouTube/TikTok/Article) ----------
     $('#btnIngest').addEventListener('click', async () => {
       try{
         const url = ($('#mediaUrl').value || '').trim();
@@ -223,7 +216,7 @@
       }
     });
 
-    // ---------- Warm tips ----------
+    // ---------- Tips ----------
     log('Tips:');
     log('• On iPhone, tap "Open Phantom" first so the wallet can inject into Safari.');
     log('• Start with small amounts; slippage is in basis points (50 = 0.50%).');
