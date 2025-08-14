@@ -1,12 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost Sniper AI</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ghost Sniper AI — Wallet Connect</title>
+  <style>
+    :root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#fff;font:16px/1.35 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    header{display:flex;gap:12px;align-items:baseline;padding:16px 20px;border-bottom:1px solid #1f2a40}
+    h1{margin:0;font-size:22px}
+    .sub{color:var(--muted);font-size:13px}
+    .wrap{max-width:1000px;margin:18px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid #1f2a40;border-radius:10px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted);font-size:13px}
+    button{appearance:none;border:none;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .sec{background:#2a3957}
+    .pri{background:#2166ff}
+    .ghost{background:transparent;border:1px solid #2a3957}
+    .ok{color:#9cf381}
+    pre{background:#0a0f1d;border:1px solid #1f2a40;border-radius:8px;padding:12px;overflow:auto}
+    a{color:#9cd1ff;text-decoration:none} a:hover{text-decoration:underline}
+  </style>
+
+  <!-- (Optional) Solana web3 helper for convenience; Phantom works without it -->
+  <script defer src="https://unpkg.com/@solana/web3.js@1.91.1/lib/index.iife.js"></script>
 </head>
 <body>
-    <h1>🚀 Ghost Sniper AI is Live!</h1>
-    <p>If you see this page, your Railway app is connected correctly.</p>
+  <header>
+    <h1>👻 Ghost Sniper</h1>
+    <div class="sub">Connect your wallet below. iPhone users: see “Open in Phantom”.</div>
+  </header>
+
+  <div class="wrap">
+    <section class="card">
+      <h2>Solana (Phantom)</h2>
+      <div class="row" style="margin-top:6px">
+        <button class="pri" id="connectPhantom">Connect Phantom</button>
+        <button class="ghost" id="openPhantom" style="display:none">Open in Phantom (iPhone)</button>
+        <span id="phantomAddr" class="muted"></span>
+      </div>
+      <pre id="phantomOut" style="margin-top:12px"></pre>
+    </section>
+
+    <section class="card">
+      <h2>EVM (MetaMask)</h2>
+      <div class="row" style="margin-top:6px">
+        <button class="sec" id="connectMM">Connect MetaMask</button>
+        <span id="mmAddr" class="muted"></span>
+      </div>
+      <pre id="mmOut" style="margin-top:12px"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Help</h2>
+      <ul>
+        <li>On iPhone/Safari, <strong>Solana wallets only inject inside the Phantom app</strong>. Tap “Open in Phantom”.</li>
+        <li>MetaMask requires the MetaMask app or extension where available.</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    // ------- Small helpers -------
+    const $ = (id) => document.getElementById(id);
+    const log = (el, obj) => el.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+
+    // ------- Phantom (Solana) -------
+    (function initPhantom() {
+      const btnConnect = $('connectPhantom');
+      const out = $('phantomOut');
+      const addr = $('phantomAddr');
+      const openBtn = $('openPhantom');
+
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      const hasPhantom = !!(window.phantom && window.phantom.solana);
+      const hasSolana = !!window.solana;
+
+      // If on iOS Safari and Phantom isn't injected, offer deep link
+      if (isIOS && !(hasPhantom || hasSolana)) {
+        openBtn.style.display = 'inline-block';
+        // Deep link into Phantom’s in-app browser (shows your site where injection works)
+        const here = encodeURIComponent(location.href.replace(/^http:/,'https:'));
+        openBtn.onclick = () => {
+          location.href = `https://phantom.app/ul/browse/${here}`;
+          // fallback direct protocol (some versions use phantom://)
+          setTimeout(() => location.href = `phantom://browse/${here}`, 600);
+        };
+      }
+
+      btnConnect.onclick = async () => {
+        try {
+          const provider = window.phantom?.solana || window.solana;
+          if (!provider) {
+            log(out, 'Phantom is not available in this browser. On iPhone, tap “Open in Phantom”.');
+            return;
+          }
+          // Request connection
+          const resp = await provider.connect({ onlyIfTrusted: false });
+          const base58 = resp.publicKey?.toBase58 ? resp.publicKey.toBase58() : String(resp.publicKey);
+          addr.innerHTML = `<span class="ok">Connected:</span> ${base58}`;
+          log(out, resp);
+        } catch (e) {
+          log(out, { error: String(e) });
+        }
+      };
+    })();
+
+    // ------- MetaMask (EVM) -------
+    (function initMetaMask() {
+      const btn = $('connectMM');
+      const out = $('mmOut');
+      const addr = $('mmAddr');
+
+      btn.onclick = async () => {
+        try {
+          if (!window.ethereum) {
+            log(out, 'MetaMask (window.ethereum) not found. Install MetaMask app/extension and try again.');
+            return;
+          }
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          addr.innerHTML = `<span class="ok">Connected:</span> ${accounts[0]}`;
+          // optionally: read chainId
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          log(out, { accounts, chainId });
+
+          // listen for changes
+          window.ethereum.on?.('accountsChanged', (accs) => log(out, { event: 'accountsChanged', accs }));
+          window.ethereum.on?.('chainChanged', (cid) => log(out, { event: 'chainChanged', chainId: cid }));
+        } catch (e) {
+          log(out, { error: String(e) });
+        }
+      };
+    })();
+  </script>
 </body>
 </html>
