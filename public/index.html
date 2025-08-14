@@ -1,226 +1,410 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>👻 Ghost Sniper — Live</title>
-  <style>
-    :root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#25c39e}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui,Segoe UI,Arial}
-    header{display:flex;gap:10px;align-items:baseline;padding:16px 18px;border-bottom:1px solid #1f2a40}
-    h1{margin:0;font-size:22px} .sub{color:var(--muted);font-size:13px}
-    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .grid{display:grid;gap:12px}
-    @media (min-width: 980px){ .grid{grid-template-columns: 1.1fr .9fr} }
-    .card{background:var(--card);border:1px solid #1f2a40;border-radius:10px;padding:14px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    label{min-width:120px;font-size:13px;color:var(--muted)}
-    input,select{background:#0b1326;border:1px solid #1f2a40;color:#fff;border-radius:8px;padding:10px 12px;outline:none}
-    input:focus,select:focus{border-color:#2a6bff}
-    .btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;color:#fff;cursor:pointer}
-    .pri{background:#2166ff} .sec{background:#2a3957}
-    .ok{color:var(--ok)} .muted{color:var(--muted)}
-    pre{background:#0a0f1d;border:1px solid #1f2a40;border-radius:10px;padding:12px;white-space:pre-wrap;max-height:260px;overflow:auto}
-    a, .link{color:#9cd1ff;text-decoration:none} a:hover{ text-decoration: underline }
-    hr{border:none;border-top:1px solid #1f2a40;margin:12px 0}
-    .badge{display:inline-block;background:#132244;border:1px solid #1f2a40;border-radius:999px;padding:3px 8px;font-size:12px}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>👻 Ghost Sniper — Pro Board</title>
+<style>
+:root{--bg:#0b1220;--card:#0f1a33;--muted:#9fb5d9;--ok:#22cc88;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+header{display:flex;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid #1f2a40;position:sticky;top:0;background:#0b1220cc;backdrop-filter:blur(8px);z-index:9}
+h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:12px}
+.wrap{max-width:1320px;margin:16px auto;padding:0 12px;display:grid;gap:12px;grid-template-columns:1.25fr .75fr}
+@media(max-width:1100px){.wrap{display:block}}
+.card{background:var(--card);border:1px solid #1f2a40;border-radius:12px;overflow:hidden}
+.card h2{margin:0;padding:10px 12px;border-bottom:1px solid #1f2a40;font-size:15px}
+.section{padding:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
+input,select,textarea{background:#0b1326;border:1px solid #1f2a40;border-radius:8px;color:#fff;padding:9px 10px;font:14px/1.2 inherit;width:100%}
+input[type="number"]{max-width:140px}
+.btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;font-weight:600;color:#fff;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:#2166ff}
+.btn.ok{background:#2a3957}
+.btn.sell{background:#a03d3d}
+.badge{display:inline-block;padding:3px 8px;border:1px solid #1f2a40;border-radius:999px;font-size:12px;color:var(--muted)}
+hr{border:none;border-top:1px solid #1f2a40;margin:10px 0}
+pre{white-space:pre-wrap;background:#081127;border:1px solid #1f2a40;padding:10px;border-radius:10px;max-height:30vh;overflow:auto}
+.list{display:grid;gap:8px}
+.item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px;border:1px solid #1f2a40;border-radius:10px;background:#0b1326}
+.item .meta{color:var(--muted);font-size:12px}
+.small{font-size:12px;color:var(--muted)}
+a{color:#9cd1ff;text-decoration:none}a:hover{text-decoration:underline}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid #1f2a40;padding:8px;text-align:left;font-size:13px}
+.pnl-pos{color:var(--ok)} .pnl-neg{color:var(--bad)}
+.tag{font-size:11px;padding:2px 6px;border:1px solid #1f2a40;border-radius:999px;margin-left:6px}
+.ghost{opacity:.7}
+</style>
 </head>
 <body>
-  <header>
-    <h1>👻 Ghost Sniper</h1>
-    <div class="sub">Connect → quote → sign & send. You sign — no keys on server.</div>
-  </header>
+<header>
+  <h1>👻 Ghost Sniper</h1>
+  <div class="sub">Phantom connect · Live feed · Quote → Sign → Swap · Auto-snipe rules. No keys on server.</div>
+</header>
 
-  <div class="wrap grid">
-    <!-- LEFT: Wallet & Sniper controls -->
-    <section class="card">
-      <h2 style="margin:0 0 12px 0;">⚙️ Wallet & Quick Trade</h2>
-
-      <!-- iPhone helper -->
-      <div class="row" id="iosHelperRow" style="display:none;margin-bottom:8px;">
-        <button class="btn sec" id="openPhantomBtn">Open Phantom (iPhone)</button>
-        <span class="muted">Use this on iOS Safari to allow wallet injection.</span>
-      </div>
-
-      <!-- Connect row -->
-      <div class="row" style="margin-bottom:10px;">
-        <button class="btn pri" id="connectPhantom">Connect Phantom</button>
-        <span class="badge" id="walletLabel">Wallet: <span class="muted">Not connected</span></span>
-      </div>
-
-      <!-- Inputs -->
+<div class="wrap">
+  <!-- LEFT: Market / Chart / AutoSniper -->
+  <section class="card">
+    <h2>📡 Intel & Chart</h2>
+    <div class="section">
       <div class="row">
-        <label>Amount (SOL)</label>
-        <input id="amt" type="number" step="0.0001" value="0.01" style="width:140px" />
-        <label>Slippage (bps)</label>
-        <input id="slip" type="number" step="1" value="50" style="width:120px" />
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <label>Pool</label>
-        <select id="pool" style="width:160px">
-          <option value="pumpfun" selected>Pump.fun</option>
-          <option value="jup">Jupiter Route</option>
-        </select>
-
-        <label>Pair</label>
-        <select id="pair" style="min-width:220px">
-          <option value="SOL-USDC">SOL → USDC</option>
-          <option value="USDC-SOL">USDC → SOL</option>
-        </select>
+        <span class="badge" id="solp">SOL $–</span>
+        <span class="badge">Jupiter v6</span>
+        <span class="badge">DexScreener</span>
       </div>
 
-      <div class="row" style="margin-top:12px;">
-        <button class="btn pri" id="btnQuote">Get Quote</button>
-        <button class="btn sec" id="btnSwap">Swap</button>
-        <span class="muted">Test tiny sizes first.</span>
+      <div class="row" style="margin-top:8px">
+        <input id="ingestUrl" placeholder="Paste YouTube / TikTok / article URL for AI summary"/>
+        <button class="btn ok" id="btnIngest">Summarize</button>
       </div>
+      <pre id="summary" class="small" style="margin-top:8px">Paste a link for a quick AI summary (trading takeaways, tickers, risks).</pre>
 
-      <hr />
+      <hr/>
 
       <div class="row">
-        <label>Paste a YouTube/TikTok URL</label>
-        <input id="mediaUrl" placeholder="https://youtube.com/… or https://www.tiktok.com/…" style="flex:1 1 340px" />
-        <button class="btn sec" id="btnIngest">Ingest</button>
+        <input id="pairSearch" placeholder="Filter: symbol / 'pump' / 'raydium'"/>
+        <button class="btn ok" id="btnReload">Reload Feed</button>
       </div>
-      <div class="muted" style="margin-top:6px">
-        Server will fetch captions/transcripts, summarize, and cache. Then you can ask the AI about the video.
+      <div id="feed" class="list" style="margin-top:8px"></div>
+
+      <hr/>
+      <div class="row">
+        <input id="chartPair" placeholder="DexScreener pairAddress (auto-filled from feed)"/>
+        <button class="btn ok" id="btnLoadChart">Load Chart</button>
       </div>
-    </section>
+      <div id="chartWrap" style="height:440px;margin-top:8px;border:1px solid #1f2a40;border-radius:10px;overflow:hidden">
+        <div class="small" style="padding:10px">Load a chart to track trades visually.</div>
+      </div>
+    </div>
 
-    <!-- RIGHT: Console output -->
-    <section class="card">
-      <h2 style="margin:0 0 12px 0;">🧵 Console</h2>
-      <pre id="out">Ready</pre>
-    </section>
-  </div>
+    <h2>🤖 Auto-Snipe (client-side)</h2>
+    <div class="section">
+      <div class="row">
+        <label class="small">Enabled <input type="checkbox" id="autoOn"></label>
+        <label class="small">Amount (SOL) <input id="autoAmt" type="number" step="0.001" value="0.02" style="width:110px"></label>
+        <label class="small">Slippage (bps) <input id="autoSlip" type="number" step="1" value="100" style="width:90px"></label>
+        <label class="small">Cool-down (s) <input id="cooldown" type="number" step="1" value="90" style="width:90px"></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="small">Min Liquidity $ <input id="minLiq" type="number" step="10" value="10000" style="width:120px"></label>
+        <label class="small">Max FDV $ <input id="maxFdv" type="number" step="10000" value="1500000" style="width:120px"></label>
+        <label class="small">Symbol must include <input id="symInc" placeholder="e.g. DOGE" style="width:160px"></label>
+        <label class="small">Exclude labels <input id="labelExc" placeholder="honeypot,scam" style="width:180px"></label>
+      </div>
+      <div class="small ghost">Auto-snipe scans the feed every 10s. When a pair matches rules and cool-down has elapsed, it executes Quote→Swap with your wallet signature prompt.</div>
+    </div>
+  </section>
 
-  <script>
-    // ---------- Utility logging ----------
-    const $ = (sel) => document.querySelector(sel);
-    const out = $('#out');
-    function log(...args){ out.textContent += '\\n' + args.map(a => typeof a==='string'?a:JSON.stringify(a,null,2)).join(' '); out.scrollTop = out.scrollHeight; }
-    function setWalletLabel(text, ok=false){ $('#walletLabel').innerHTML = 'Wallet: ' + (ok ? '<span class="ok">'+text+'</span>' : '<span class="muted">'+text+'</span>'); }
+  <!-- RIGHT: Wallet / Sniper / Positions / History -->
+  <section class="card">
+    <h2>🧰 Wallet & Sniper</h2>
+    <div class="section">
+      <div class="row">
+        <button class="btn ok" id="openPhantom" style="display:none">Open Phantom (iOS)</button>
+        <button class="btn primary" id="connectPhantom">Connect Phantom</button>
+        <span class="badge" id="walletLabel">Wallet: <span class="ghost">Not connected</span></span>
+      </div>
 
-    // ---------- iOS helper visibility ----------
-    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    if(isIOS){ $('#iosHelperRow').style.display = 'flex'; }
-    $('#openPhantomBtn')?.addEventListener('click', ()=>{ location.href = 'https://phantom.app/ul/browse/'+encodeURIComponent(location.href); });
+      <div class="kv" style="margin-top:8px">
+        <div>Amount (SOL)</div><input id="amt" type="number" step="0.001" value="0.02"/>
+        <div>Slippage (bps)</div><input id="slip" type="number" step="1" value="100"/>
+        <div>Priority (lamports)</div><input id="prio" type="number" step="1000" value="auto" placeholder="auto"/>
+      </div>
 
-    // ---------- Phantom connect ----------
-    let walletAddr = null;
-    $('#connectPhantom').addEventListener('click', async () => {
-      try{
-        if(!window.solana){
-          log('Phantom not injected. If on iOS, tap "Open Phantom" first.');
-          setWalletLabel('Not injected'); return;
-        }
-        const resp = await window.solana.connect();
-        walletAddr = resp.publicKey?.toString?.() || resp.publicKey;
-        setWalletLabel(walletAddr, true);
-        log('Phantom connected:', walletAddr);
-      }catch(e){
-        log('connect error:', String(e));
-      }
+      <hr/>
+      <div class="kv">
+        <div>Input</div>
+        <select id="inMint">
+          <option value="So11111111111111111111111111111111111111112">SOL</option>
+          <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
+        </select>
+        <div>Output (mint)</div>
+        <input id="outMint" placeholder="target mint (autofill from feed)"/>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn ok" id="btnQuote">Get Quote</button>
+        <button class="btn primary" id="btnSwap" disabled>Sign & Swap</button>
+        <button class="btn sell" id="btnSell" disabled>Quick Sell</button>
+      </div>
+
+      <hr/>
+      <div class="row">
+        <label><input type="checkbox" id="tpOn" checked> TP +12%</label>
+        <label><input type="checkbox" id="slOn" checked> SL -8%</label>
+        <label><input type="checkbox" id="autoThin"> Auto-sell thin liq</label>
+      </div>
+    </div>
+
+    <h2>📒 Positions</h2>
+    <div class="section">
+      <div class="small">Local only (no server custody). PnL updates live; sells require your signature.</div>
+      <div id="positions" class="list" style="margin-top:8px"></div>
+    </div>
+
+    <h2>🧾 Trade History</h2>
+    <div class="section">
+      <table id="history">
+        <thead><tr><th>Time</th><th>Mint</th><th>Action</th><th>Size (SOL)</th><th>Price</th><th>PNL</th><th>Sig</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>🧵 Console</h2>
+    <div class="section">
+      <pre id="log">Ready.</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ===== Utilities ===== */
+const $=id=>document.getElementById(id);
+const log=(...a)=>{const el=$('log');el.textContent+=a.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' ')+'\\n';el.scrollTop=el.scrollHeight};
+const fmt=(n,d=4)=>Number(n||0).toFixed(d);
+const lamports = sol => Math.round(Number(sol||0)*1e9);
+const MINTS={SOL:'So11111111111111111111111111111111111111112',USDC:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'};
+let phantom=null,pubkey=null,lastRoute=null,lastOutMint=null,lastPair=null,lastSnipeAt=0;
+
+/* ===== Wallet helpers ===== */
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent); if(isIOS)$('openPhantom').style.display='inline-block';
+$('openPhantom').onclick=()=>location.href='https://phantom.app/ul/browse/'+encodeURIComponent(location.href);
+$('connectPhantom').onclick=async()=>{try{
+  if(!window.solana?.isPhantom){log("Phantom not injected. On iPhone, tap Open Phantom.");return}
+  phantom=window.solana; const r=await phantom.connect(); pubkey=r.publicKey.toString();
+  $('walletLabel').innerHTML='Wallet: <span style="color:#22cc88">'+pubkey.slice(0,5)+'…'+pubkey.slice(-5)+'</span>'; log("Phantom:",pubkey);
+}catch(e){log("connect_error:",e.message||e)}};
+
+/* ===== Prices ===== */
+async function refreshSol(){try{const r=await fetch('/api/price/sol');const j=await r.json();if(j?.usd)$('solp').textContent='SOL $'+j.usd}catch{}}
+refreshSol(); setInterval(refreshSol,30000);
+
+/* ===== Feed ===== */
+$('btnReload').onclick=loadFeed; loadFeed(); setInterval(loadFeed,10000);
+async function loadFeed(){
+  const q=($('pairSearch').value||'').toLowerCase();
+  try{
+    const r=await fetch('/api/dexscreener/new'); const j=await r.json();
+    const items=(j.items||[]).filter(p=>{
+      const s=`${p.baseSymbol} ${p.quoteSymbol} ${p.dexId} ${p.url}`.toLowerCase(); return q? s.includes(q):true;
     });
+    const box=$('feed'); box.innerHTML='';
+    items.forEach(p=>{
+      const row=document.createElement('div'); row.className='item';
+      row.innerHTML=`<div>
+        <div><b>${p.baseSymbol||'???'}</b> / ${p.quoteSymbol} · ${p.dexId} · <a href="${p.url}" target="_blank">chart</a>
+          <span class="tag">liq $${fmt(p.liquidityUsd,0)}</span>
+          <span class="tag">FDV $${fmt(p.fdv,0)}</span>
+        </div>
+        <div class="meta small">${p.baseAddress}</div>
+      </div>
+      <div class="row">
+        <button class="btn ok">Quote</button>
+        <button class="btn primary">Snipe</button>
+      </div>`;
+      const [bq,bs]=row.querySelectorAll('button');
+      bq.onclick=()=>{ $('outMint').value=p.baseAddress; $('chartPair').value=extractPair(p.url); $('btnLoadChart').click(); quote(MINTS.SOL,p.baseAddress); };
+      bs.onclick=()=>snipe(MINTS.SOL,p.baseAddress,p.url);
+      box.appendChild(row);
+    });
+  }catch(e){$('feed').innerHTML=`<div class="small">Feed error: ${e.message||e}</div>`}
+}
+function extractPair(url){ // dex url ends with /solana/<pairAddress>
+  try{const u=new URL(url); const parts=u.pathname.split('/').filter(Boolean); return parts[1]||'';}catch{return ''}}
 
-    // ---------- Mint dictionary (quick presets) ----------
-    const MINTS = {
-      SOL:  'So11111111111111111111111111111111111111112', // WSOL
-      USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-    };
-    function getPairMints(pair){
-      if(pair === 'SOL-USDC') return { inputMint: MINTS.SOL,  outputMint: MINTS.USDC };
-      if(pair === 'USDC-SOL') return { inputMint: MINTS.USDC, outputMint: MINTS.SOL  };
-      throw new Error('Unsupported pair selection');
+/* ===== Chart embed ===== */
+$('btnLoadChart').onclick=()=>{
+  const pair=$('chartPair').value.trim(); if(!pair) return $('chartWrap').innerHTML='<div class="small" style="padding:10px">Enter pair address.</div>';
+  lastPair=pair;
+  $('chartWrap').innerHTML = `<iframe src="https://dexscreener.com/solana/${encodeURIComponent(pair)}?embed=1&theme=dark"
+    style="width:100%;height:100%;border:0;"></iframe>`;
+};
+
+/* ===== Quote & Swap ===== */
+$('btnQuote').onclick=()=>quote($('inMint').value,$('outMint').value);
+async function quote(inputMint,outputMint){
+  try{
+    if(!pubkey) throw new Error("Connect wallet first");
+    outputMint=outputMint||$('outMint').value.trim(); if(!outputMint) throw new Error("Set output mint");
+    lastOutMint=outputMint;
+    const amountLamports = inputMint===MINTS.SOL ? lamports($('amt').value) : Math.round(Number($('amt').value||0)*1e6);
+    const slip = Math.max(1, Number($('slip').value||"100"));
+    const u=new URL('/api/jup/quote',location.origin);
+    u.searchParams.set('inputMint',inputMint); u.searchParams.set('outputMint',outputMint);
+    u.searchParams.set('amount',amountLamports); u.searchParams.set('slippageBps',slip);
+    log("Quoting…", {inputMint,outputMint,amountLamports,slip});
+    const r=await fetch(u); const j=await r.json();
+    const route=j?.data?.[0]||j?.data; if(!route) throw new Error("No route");
+    lastRoute=route; $('btnSwap').disabled=false; $('btnSell').disabled=false;
+    log("QUOTE OK",{inAmount:route.inAmount,outAmount:route.outAmount});
+  }catch(e){log("quote_error:",e.message||e)}
+}
+
+$('btnSwap').onclick=()=>swapCurrent(false);
+$('btnSell').onclick=()=>swapCurrent(true);
+
+async function swapCurrent(reverse=false){
+  try{
+    if(!pubkey) throw new Error("Connect wallet first");
+    if(!lastRoute) throw new Error("Get a quote first");
+    // if reverse, re-quote opposite direction
+    if(reverse){
+      await quote(lastOutMint, $('inMint').value);
     }
+    const prioritizationFeeLamports = (''+$('prio').value).toLowerCase()==='auto' ? 'auto' : Number($('prio').value||0);
+    log("Building swap…");
+    const r=await fetch('/api/jup/swap',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({ userPublicKey:pubkey, wrapAndUnwrapSol:true, quoteResponse:lastRoute, prioritizationFeeLamports })
+    }); const j=await r.json();
+    const b64=j?.swapTransaction; if(!b64) { log("swap_build_error:", j); throw new Error("No swapTransaction") }
+    const sig = await signAndSend(b64);
+    log("✅ sent:",sig);
+    recordTrade(sig, reverse?'SELL':'BUY', lastOutMint, Number($('amt').value||0));
+    // track position
+    if(!reverse) addPosition(lastOutMint, Number($('amt').value||0));
+    else closePosition(lastOutMint);
+  }catch(e){log("swap_error:",e.message||e)}
+}
 
-    // ---------- Quote ----------
-    let lastQuote = null;
-    $('#btnQuote').addEventListener('click', async () => {
-      try{
-        const { inputMint, outputMint } = getPairMints($('#pair').value);
-        const amountSol = Number($('#amt').value || '0');
-        if(!amountSol || amountSol <= 0) throw new Error('Enter amount');
+async function signAndSend(b64){
+  const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  // try both payload shapes
+  try{ const r1=await window.solana.signAndSendTransaction({ serializedTransaction:b64 }); return r1?.signature||r1; }
+  catch(e1){
+    try{ const r2=await window.solana.signAndSendTransaction({ message: bytes }); return r2?.signature||r2; }
+    catch(e2){ throw new Error("Wallet rejected payloads: "+(e1?.message||e1)+" / "+(e2?.message||e2)); }
+  }
+}
 
-        let amount = amountSol;
-        if(inputMint === MINTS.SOL){
-          amount = Math.round(amountSol * 1e9);   // lamports
-        } else {
-          amount = Math.round(amountSol * 1e6);   // crude for USDC
-        }
+/* ===== Positions & History (localStorage) ===== */
+const storeKey=(name)=>`${name}:v1:${pubkey||'anon'}`;
+const load=(k)=>{ try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
-        const u = new URL('/api/jup/quote', location.origin);
-        u.searchParams.set('inputMint', inputMint);
-        u.searchParams.set('outputMint', outputMint);
-        u.searchParams.set('amount', String(amount));
-        u.searchParams.set('slippageBps', String(Number($('#slip').value || '50')));
+function renderPositions(){
+  const box=$('positions'); box.innerHTML='';
+  const list=load(storeKey('positions'));
+  if(!list.length){ box.innerHTML='<div class="small">No active positions.</div>'; return; }
+  list.forEach((p,idx)=>{
+    const row=document.createElement('div'); row.className='item';
+    row.innerHTML=`<div>
+      <div><b>${p.mint.slice(0,6)}…${p.mint.slice(-6)}</b>
+        <span class="tag">size ${p.sizeSol} SOL</span>
+        <span class="tag">entry $${fmt(p.entry)}</span>
+        <span class="tag">${p.tp*100|0}% TP / ${p.sl*100|0}% SL</span>
+      </div>
+      <div class="meta small" id="pmeta-${idx}">—</div>
+    </div>
+    <div class="row"><button class="btn primary" id="psell-${idx}">Sell</button></div>`;
+    $('positions').appendChild(row);
+    $('psell-'+idx).onclick=async()=>{ await quote(p.mint, MINTS.SOL); await swapCurrent(true); };
+  });
+}
+function addPosition(mint,sizeSol){
+  (async()=>{
+    const entry=await priceUsd(mint)||0;
+    const tp=$('tpOn').checked?0.12:0, sl=$('slOn').checked?0.08:0;
+    const list=load(storeKey('positions')); list.push({ mint, sizeSol, entry, tp, sl, t:Date.now() }); save(storeKey('positions'),list); renderPositions();
+  })();
+}
+function closePosition(mint){
+  const list=load(storeKey('positions')); const i=list.findIndex(x=>x.mint===mint);
+  if(i>=0){ list.splice(i,1); save(storeKey('positions'),list); renderPositions(); }
+}
+function recordTrade(signature, side, mint, sizeSol, pnl=null){
+  const hist=load(storeKey('history'));
+  hist.unshift({ t:Date.now(), side, mint, sizeSol, pnl, sig:signature });
+  save(storeKey('history'), hist); renderHistory();
+}
+function renderHistory(){
+  const tb=$('history').querySelector('tbody'); tb.innerHTML='';
+  const hist=load(storeKey('history'));
+  hist.slice(0,100).forEach(h=>{
+    const tr=document.createElement('tr');
+    const t=new Date(h.t).toLocaleTimeString();
+    tr.innerHTML=`<td>${t}</td><td>${h.mint.slice(0,5)}…${h.mint.slice(-5)}</td><td>${h.side}</td>
+      <td>${h.sizeSol}</td><td>${h.price?('$'+fmt(h.price)):''}</td>
+      <td>${h.pnl!=null?(h.pnl>=0?'<span class="pnl-pos">+$'+fmt(h.pnl):'<span class="pnl-neg">-$'+fmt(-h.pnl))+'</span>':''}</td>
+      <td><a target="_blank" href="https://solscan.io/tx/${h.sig}">view</a></td>`;
+    tb.appendChild(tr);
+  });
+}
 
-        log('Fetching quote…');
-        const q = await fetch(u).then(r=>r.json());
-        lastQuote = q?.data || null;
-        if(!lastQuote) throw new Error('No route from Jupiter');
-        log('QUOTE OK', { in: inputMint, out: outputMint, amount, outAmount: lastQuote?.outAmount });
-      }catch(e){
-        log('quote error:', String(e));
-      }
+/* live PnL updater */
+setInterval(async()=>{
+  const list=load(storeKey('positions')); if(!list.length) return;
+  for(let i=0;i<list.length;i++){
+    const p=list[i]; const px=await priceUsd(p.mint); if(!px) continue;
+    const ch=(px-p.entry)/p.entry; const el=$('pmeta-'+i);
+    if(el) el.innerHTML=`now $${fmt(px)} · <span class="${ch>=0?'pnl-pos':'pnl-neg'}">${(ch*100).toFixed(2)}%</span>`;
+    // TP/SL auto-sell prompt
+    if (p.tp && ch>=p.tp){ log("TP hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
+    if (p.sl && ch<=-p.sl){ log("SL hit → selling", p.mint); await quote(p.mint,MINTS.SOL); await swapCurrent(true); }
+  }
+}, 6000);
+
+/* ===== Prices by mint ===== */
+async function priceUsd(mint){ try{ const r=await fetch(`/api/dex/price?token=${mint}`); const j=await r.json(); return Number(j?.priceUsd||0)||null } catch { return null } }
+
+/* ===== Auto-Snipe loop ===== */
+setInterval(async()=>{
+  if(!$('autoOn').checked || !pubkey) return;
+  const now=Date.now(); const cool = Number($('cooldown').value||90)*1000;
+  if (now - lastSnipeAt < cool) return;
+
+  try{
+    const r=await fetch('/api/dexscreener/new'); const j=await r.json();
+    const minLiq=Number($('minLiq').value||0), maxFdv=Number($('maxFdv').value||1e12);
+    const inc=($('symInc').value||'').toLowerCase(); const exc=($('labelExc').value||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+
+    const candidates=(j.items||[]).filter(p=>{
+      const sym=(p.baseSymbol||'').toLowerCase(); const flags=((p.labels||[]).join(' ')||'').toLowerCase();
+      if (minLiq && (p.liquidityUsd||0) < minLiq) return false;
+      if (maxFdv && (p.fdv||1e12) > maxFdv) return false;
+      if (inc && !sym.includes(inc)) return false;
+      if (exc.length && exc.some(tag=>flags.includes(tag))) return false;
+      return true;
     });
 
-    // ---------- Swap (sign & send with Phantom) ----------
-    $('#btnSwap').addEventListener('click', async () => {
-      try{
-        if(!walletAddr){ throw new Error('Connect Phantom first'); }
-        if(!lastQuote){ throw new Error('Get a quote first'); }
+    if(!candidates.length) return;
+    // Choose the first candidate (you can sort by liquidity/age/etc.)
+    const pick=candidates[0];
+    log("AUTO candidate:", pick.baseSymbol, "liq:", pick.liquidityUsd, "fdv:", pick.fdv);
+    $('outMint').value=pick.baseAddress;
+    $('chartPair').value=extractPair(pick.url); $('btnLoadChart').click();
 
-        log('Building swap tx…');
-        const res = await fetch('/api/jup/swap', {
-          method: 'POST',
-          headers: { 'content-type':'application/json' },
-          body: JSON.stringify({
-            userPublicKey: walletAddr,
-            wrapAndUnwrapSol: true,
-            quoteResponse: lastQuote
-          })
-        }).then(r=>r.json());
+    // quote & prompt swap
+    await quote(MINTS.SOL, pick.baseAddress);
+    const autoAmt=Number($('autoAmt').value||0.02); $('amt').value=autoAmt;
+    $('slip').value=$('autoSlip').value||"100";
+    await swapCurrent(false); // will ask Phantom to sign
+    lastSnipeAt=Date.now();
+  }catch(e){ log("auto_error:", e.message||e) }
+}, 10000);
 
-        const txB64 = res?.swapTransaction;
-        if(!txB64){ throw new Error('Bad swap response from server'); }
+/* ===== AI ingest ===== */
+$('btnIngest').onclick=async()=>{
+  const url=$('ingestUrl').value.trim(); if(!url) return;
+  $('summary').textContent="Summarizing…";
+  try{ const r=await fetch('/api/ingest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url})});
+    const j=await r.json(); $('summary').textContent=j.summary||JSON.stringify(j,null,2);
+  }catch(e){ $('summary').textContent="Error: "+(e.message||e) }
+};
 
-        const txBytes = Uint8Array.from(atob(txB64), c => c.charCodeAt(0));
-        log('Requesting Phantom to sign & send…');
+/* ===== Manual quick snipe from feed ===== */
+async function snipe(inMint,outMint,url){
+  $('outMint').value=outMint;
+  $('chartPair').value=extractPair(url); $('btnLoadChart').click();
+  await quote(inMint,outMint);
+  await swapCurrent(false);
+}
 
-        // Phantom accepts { message: Uint8Array } for serialized
-        const signed = await window.solana.signAndSendTransaction({ message: txBytes });
-        const sig = signed?.signature || signed;
-        log('✅ sent:', sig);
-      }catch(e){
-        log('swap error:', String(e));
-      }
-    });
-
-    // ---------- Ingest (YouTube/TikTok/Article) ----------
-    $('#btnIngest').addEventListener('click', async () => {
-      try{
-        const url = ($('#mediaUrl').value || '').trim();
-        if(!url) throw new Error('Paste a media URL first');
-        log('Ingesting:', url);
-        const j = await fetch('/api/ingest', {
-          method:'POST',
-          headers:{'content-type':'application/json'},
-          body: JSON.stringify({ url })
-        }).then(r=>r.json());
-        log('INGEST OK', j);
-      }catch(e){
-        log('ingest error:', String(e));
-      }
-    });
-
-    // ---------- Tips ----------
-    log('Tips:');
-    log('• On iPhone, tap "Open Phantom" first so the wallet can inject into Safari.');
-    log('• Start with small amounts; slippage is in basis points (50 = 0.50%).');
-    log('• You always sign locally; the server never sees your keys.');
-  </script>
+/* ===== Init ===== */
+renderPositions(); renderHistory();
+</script>
 </body>
 </html>
